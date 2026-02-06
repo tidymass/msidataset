@@ -1,18 +1,17 @@
+#' @importFrom magrittr %>%
+
 setMethod(
   f = "show",
   signature = "msi_dataset",
   definition = function(object) {
     ###check again
-    check_result = check_msi_dataset(
-      expression_data = object@expression_data,
-      pixel_info = object@pixel_info,
-      sample_info = object@sample_info,
-      variable_info = object@variable_info
-    )
-    if (check_result != "all good.") {
-      cat(crayon::red(check_result, "\n"))
+    check_result = check_msi_dataset_class(object)
+    
+    if (!isTRUE(check_result)) {
+      cat(crayon::red("Validation errors found:\n"))
+      cat(crayon::red(paste(check_result, collapse = "\n"), "\n"))
       cat(crayon::red(
-        "You may changed the slots, try to use update_msi_dataset().\n"
+        "You may have changed the slots. Try to use update_msi_dataset().\n"
       ))
     }
     
@@ -118,15 +117,19 @@ setMethod(
     
     # 8. ms2_data
     cat(crayon::green("8.ms2_data:"))
-    cat("[",
-        sum(unlist(lapply(object@ms2_data, function(x) {
-          length(unique(x@variable_id))
-        }))),
-        "variables x",
-        sum(unlist(lapply(object@ms2_data, function(x) {
-          length(unique(x@ms2_spectra))
-        }))),
-        "MS2 spectra]\n")
+    if (length(object@ms2_data) > 0) {
+      cat("[",
+          sum(unlist(lapply(object@ms2_data, function(x) {
+            length(unique(x@variable_id))
+          }))),
+          "variables x",
+          sum(unlist(lapply(object@ms2_data, function(x) {
+            length(unique(x@ms2_spectra))
+          }))),
+          "MS2 spectra]\n")
+    } else {
+      cat("[0 MS2 spectra]\n")
+    }
     
     cat(crayon::yellow(paste(rep("-", 20), collapse = ""), "\n"))
     cat(crayon::green("Processing information\n"))

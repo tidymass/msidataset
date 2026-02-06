@@ -16,6 +16,8 @@ Depends:
     R (>= 4.0.0),
     Cardinal (>= 3.0.0)
 Imports: 
+    Cardinal,
+    massdataset,
     methods,
     stats,
     dplyr,

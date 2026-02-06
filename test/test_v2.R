@@ -21,7 +21,7 @@ devtools::load_all()
 
 # Step 1: 读取 imzML 文件（使用 Cardinal）
 cardinal_obj <- readMSIData(
-  "2_data/demo data/03-total ion count.imzML",
+  "data/demo data/03-total ion count.imzML",
   memory = FALSE
 )
 

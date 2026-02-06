@@ -16,10 +16,12 @@
 #' data("expression_data")
 #' data("pixel_info")
 #' data("variable_info")
+#' data("sample_info")
 #' object <-
 #'   create_msi_dataset(expression_data = expression_data,
 #'                       pixel_info = pixel_info,
-#'                       variable_info = variable_info)
+#'                       variable_info = variable_info,
+#'                       sample_info = sample_info)
 #'   check_msi_dataset_class(object)
 
 check_msi_dataset_class <-
@@ -252,6 +254,9 @@ setClass(
     version = "character",
     activated = "character"
   ),
+  prototype = list(
+    activated = "expression_data"  # 添加默认值
+  ),
   validity = check_msi_dataset_class
 )
 
@@ -264,23 +269,17 @@ setClass(
 #' @docType methods
 #' @author Xiaoyu Xu
 #' \email{XIAOYU021@@e.ntu.edu.sg}
-#' @param expression_data MS1 peak table name.
-#' \url{https://tidymass.github.io/msidataset/articles/data_import_and_export.html}
-#' @param sample_info Sample information name.
-#' \url{https://tidymass.github.io/msidataset/articles/data_import_and_export.html}
-#' @param variable_info MS1 peak table name.
-#' Columns are pixels and rows are variables.
-#' @param pixel_info MS1 peak table name.
-#' \url{https://tidymass.github.io/msidataset/articles/data_import_and_export.html}
-#' @param sample_info_note Sample information name.
-#' \url{https://tidymass.github.io/msidataset/articles/data_import_and_export.html}
-#' @param variable_info_note Sample information name.
-#' \url{https://tidymass.github.io/msidataset/articles/data_import_and_export.html}
-#' @param pixel_info_note MS1 peak table name.
-#' \url{https://tidymass.github.io/msidataset/articles/data_import_and_export.html}
+#' @param expression_data Expression data matrix (variables × pixels).
+#' @param pixel_info Pixel information data.frame with pixel_id, x, y, z columns.
+#' @param sample_info Sample information data.frame with sample_id column.
+#' @param variable_info Variable information data.frame with variable_id, mz columns.
+#' @param pixel_info_note Optional. Descriptions for pixel_info columns.
+#' @param sample_info_note Optional. Descriptions for sample_info columns.
+#' @param variable_info_note Optional. Descriptions for variable_info columns.
 #' @return An object of class \code{msi_dataset}.
 #' @export
 #' @examples
+#' \dontrun{
 #' data("expression_data")
 #' data("pixel_info")
 #' data("pixel_info_note")
@@ -299,6 +298,7 @@ setClass(
 #'     variable_info_note = variable_info_note
 #'   )
 #' object
+#' }
 
 create_msi_dataset <-
   function(expression_data,
@@ -308,21 +308,72 @@ create_msi_dataset <-
            pixel_info_note,
            sample_info_note,
            variable_info_note) {
-    check_result <-
-      check_msi_dataset_class(
-        expression_data = expression_data,
-        pixel_info = pixel_info,
-        sample_info = sample_info,
-        variable_info = variable_info,
-        pixel_info_note = pixel_info_note,
-        sample_info_note = sample_info_note,
-        variable_info_note = variable_info_note
-      )
     
-    if (stringr::str_detect(check_result, "error")) {
-      stop(check_result)
+    # ========== Pre-creation validation (before creating object) ==========
+    # Check variable_info
+    if (!"variable_id" %in% colnames(variable_info)) {
+      stop("variable_info must have variable_id column.")
     }
     
+    if (sum(duplicated(variable_info$variable_id)) > 0) {
+      stop("variable_id has duplicated items.")
+    }
+    
+    # Check pixel_info
+    if (!"pixel_id" %in% colnames(pixel_info)) {
+      stop("pixel_info must have pixel_id column.")
+    }
+    
+    if (sum(duplicated(pixel_info$pixel_id)) > 0) {
+      stop("pixel_id has duplicated items.")
+    }
+    
+    if (!"x" %in% colnames(pixel_info)) {
+      stop("pixel_info must have x (horizontal spatial coordinate).")
+    }
+    
+    if (!"y" %in% colnames(pixel_info)) {
+      stop("pixel_info must have y (vertical spatial coordinate).")
+    }
+    
+    if (!"z" %in% colnames(pixel_info)) {
+      stop("pixel_info must have z (tissue slice depth).")
+    }
+    
+    # Check sample_info
+    if (!"sample_id" %in% colnames(sample_info)) {
+      stop("sample_info must have sample_id column.")
+    }
+    
+    if (sum(duplicated(sample_info$sample_id)) > 0) {
+      stop("sample_id has duplicated items.")
+    }
+    
+    # Check dimensions match
+    if (ncol(expression_data) != nrow(pixel_info)) {
+      stop("expression_data's column number must equal pixel_info's row number.")
+    }
+    
+    if (nrow(expression_data) != nrow(variable_info)) {
+      stop("expression_data's row number must equal variable_info's row number.")
+    }
+    
+    # Check IDs match (only if names are already set)
+    if (!is.null(colnames(expression_data)) && 
+        !all(colnames(expression_data) == "")) {
+      if (sum(colnames(expression_data) != pixel_info$pixel_id) > 0) {
+        stop("expression_data's column names must match pixel_info's pixel_id.")
+      }
+    }
+    
+    if (!is.null(rownames(expression_data)) && 
+        !all(rownames(expression_data) == "")) {
+      if (sum(rownames(expression_data) != variable_info$variable_id) > 0) {
+        stop("expression_data's row names must match variable_info's variable_id.")
+      }
+    }
+    
+    # ========== Create info_note if missing ==========
     if (missing(pixel_info_note)) {
       pixel_info_note <-
         data.frame(
@@ -350,6 +401,7 @@ create_msi_dataset <-
         )
     }
     
+    # ========== Create process_info ==========
     process_info = list()
     
     parameter <- new(
@@ -362,6 +414,7 @@ create_msi_dataset <-
     
     process_info$create_msi_dataset = parameter
     
+    # ========== Convert to data.frame ==========
     old_rownames <- rownames(expression_data)
     expression_data <- as.data.frame(expression_data)
     rownames(expression_data) <- old_rownames
@@ -372,6 +425,7 @@ create_msi_dataset <-
     sample_info_note <- as.data.frame(sample_info_note)
     variable_info_note <- as.data.frame(variable_info_note)
     
+    # ========== Create object ==========
     object <- new(
       Class = "msi_dataset",
       expression_data = expression_data,
@@ -384,8 +438,8 @@ create_msi_dataset <-
       sample_info_note = sample_info_note,
       variable_info_note = variable_info_note,
       process_info = process_info,
-      version = as.character(utils::packageVersion(pkg = "msidataset"))
+      version = as.character(utils::packageVersion(pkg = "msidataset")),
+      activated = "expression_data"  # 添加 activated 字段
     )
     invisible(object)
   }
-
