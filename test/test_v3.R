@@ -66,8 +66,19 @@ cardinal_obj <- readMSIData(
   memory = FALSE
 )
 
-# 使用完整参数转换
+# 使用完整参数转换v0
 my_msi_full <- convert_cardinal2msi_dataset(
+  cardinal_object = cardinal_obj,
+  tolerance = 10,                      # 对齐容差
+  units = "ppm",                       # 容差单位
+  sample_name = "rena_cancer", # 样本名称
+  section_name = "slice_01",   # 切片名称
+  resolution = "50um",                 # 空间分辨率
+  matrix_name = "NEDC"                  # MALDI 基质
+)
+
+# 使用完整参数转换v1
+my_msi_full <- convert_cardinal2msi_dataset_v1(
   cardinal_object = cardinal_obj,
   tolerance = 10,                      # 对齐容差
   units = "ppm",                       # 容差单位
@@ -116,7 +127,7 @@ print(sample_info(my_msi_full))
 cat("\n--- Variable Info ---\n")
 cat("Columns:", paste(colnames(variable_info(my_msi_full)), collapse = ", "), "\n")
 cat("Number of variables:", nrow(variable_info(my_msi_full)), "\n")
-print(head(variable_info(my_msi_full), 3))
+print(head(variable_info(my_msi_full), 100))
 
 # m/z 分布
 cat("\nm/z statistics:\n")
