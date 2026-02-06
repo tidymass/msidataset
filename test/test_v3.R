@@ -8,10 +8,11 @@
 # ============================================================================
 # 环境设置和包加载
 # ============================================================================
+devtools::document()
 setwd("D:/Shen_lab/msidataset")
 library(S4Vectors)
 library(Cardinal)
-devtools::document()
+
 devtools::load_all()
 
 # 或者如果已经安装了包
@@ -70,10 +71,10 @@ my_msi_full <- convert_cardinal2msi_dataset(
   cardinal_object = cardinal_obj,
   tolerance = 10,                      # 对齐容差
   units = "ppm",                       # 容差单位
-  sample_name = "mouse_brain_section", # 样本名称
-  section_name = "coronal_slice_01",   # 切片名称
+  sample_name = "rena_cancer", # 样本名称
+  section_name = "slice_01",   # 切片名称
   resolution = "50um",                 # 空间分辨率
-  matrix_name = "DHB"                  # MALDI 基质
+  matrix_name = "NEDC"                  # MALDI 基质
 )
 
 # 查看对象
@@ -90,38 +91,38 @@ my_msi <- readRDS("2_data/output/my_msi_dataset.rds")
 
 # 1. Expression Data
 cat("\n--- Expression Data ---\n")
-cat("Dimensions:", paste(dim(expression_data(my_msi)), collapse = " x "), "\n")
+cat("Dimensions:", paste(dim(expression_data(my_msi_full)), collapse = " x "), "\n")
 cat("First 5 variables, first 3 pixels:\n")
-print(expression_data(my_msi)[1:5, 1:3])
+print(expression_data(my_msi_full)[1:100, 1:5])
 
 # 2. Pixel Info
 cat("\n--- Pixel Info ---\n")
-cat("Columns:", paste(colnames(pixel_info(my_msi)), collapse = ", "), "\n")
-cat("Number of pixels:", nrow(pixel_info(my_msi)), "\n")
-print(head(pixel_info(my_msi), 3))
+cat("Columns:", paste(colnames(pixel_info(my_msi_full)), collapse = ", "), "\n")
+cat("Number of pixels:", nrow(pixel_info(my_msi_full)), "\n")
+print(head(pixel_info(my_msi_full), 3))
 
 # 查看空间范围
 cat("\nSpatial ranges:\n")
-cat("  x: [", min(pixel_info(my_msi)$x), ",", max(pixel_info(my_msi)$x), "]\n")
-cat("  y: [", min(pixel_info(my_msi)$y), ",", max(pixel_info(my_msi)$y), "]\n")
-cat("  z: [", min(pixel_info(my_msi)$z), ",", max(pixel_info(my_msi)$z), "]\n")
+cat("  x: [", min(pixel_info(my_msi_full)$x), ",", max(pixel_info(my_msi_full)$x), "]\n")
+cat("  y: [", min(pixel_info(my_msi_full)$y), ",", max(pixel_info(my_msi_full)$y), "]\n")
+cat("  z: [", min(pixel_info(my_msi_full)$z), ",", max(pixel_info(my_msi_full)$z), "]\n")
 
 # 3. Sample Info
 cat("\n--- Sample Info ---\n")
-cat("Columns:", paste(colnames(sample_info(my_msi)), collapse = ", "), "\n")
-print(sample_info(my_msi))
+cat("Columns:", paste(colnames(sample_info(my_msi_full)), collapse = ", "), "\n")
+print(sample_info(my_msi_full))
 
 # 4. Variable Info
 cat("\n--- Variable Info ---\n")
-cat("Columns:", paste(colnames(variable_info(my_msi)), collapse = ", "), "\n")
-cat("Number of variables:", nrow(variable_info(my_msi)), "\n")
-print(head(variable_info(my_msi), 3))
+cat("Columns:", paste(colnames(variable_info(my_msi_full)), collapse = ", "), "\n")
+cat("Number of variables:", nrow(variable_info(my_msi_full)), "\n")
+print(head(variable_info(my_msi_full), 3))
 
 # m/z 分布
 cat("\nm/z statistics:\n")
-cat("  Min m/z:", round(min(variable_info(my_msi)$mz), 4), "\n")
-cat("  Max m/z:", round(max(variable_info(my_msi)$mz), 4), "\n")
-cat("  Median m/z:", round(median(variable_info(my_msi)$mz), 4), "\n")
+cat("  Min m/z:", round(min(variable_info(my_msi_full)$mz), 4), "\n")
+cat("  Max m/z:", round(max(variable_info(my_msi_full)$mz), 4), "\n")
+cat("  Median m/z:", round(median(variable_info(my_msi_full)$mz), 4), "\n")
 
 # ============================================================================
 # 示例 4: 数据质量检查
@@ -135,25 +136,25 @@ my_msi <- readRDS("2_data/output/my_msi_dataset.rds")
 cat("\n--- Data Integrity Check ---\n")
 
 # 检查缺失值
-na_count <- sum(is.na(expression_data(my_msi)))
+na_count <- sum(is.na(expression_data(my_msi_full)))
 cat("Missing values in expression_data:", na_count, "\n")
 
 # 检查零值比例
-zero_count <- sum(expression_data(my_msi) == 0)
-total_count <- nrow(expression_data(my_msi)) * ncol(expression_data(my_msi))
+zero_count <- sum(expression_data(my_msi_full) == 0)
+total_count <- nrow(expression_data(my_msi_full)) * ncol(expression_data(my_msi_full))
 cat("Zero values:", zero_count, "(", 
     round(zero_count/total_count*100, 2), "%)\n")
 
 # 2. 检查数据范围
 cat("\n--- Data Range Check ---\n")
 cat("Expression data range:\n")
-cat("  Min:", round(min(expression_data(my_msi)), 2), "\n")
-cat("  Max:", round(max(expression_data(my_msi)), 2), "\n")
-cat("  Mean:", round(mean(as.matrix(expression_data(my_msi))), 2), "\n")
+cat("  Min:", round(min(expression_data(my_msi_full)), 2), "\n")
+cat("  Max:", round(max(expression_data(my_msi_full)), 2), "\n")
+cat("  Mean:", round(mean(as.matrix(expression_data(my_msi_full))), 2), "\n")
 
 # 3. 检查像素分布
 cat("\n--- Pixel Distribution ---\n")
-pixel_coords <- pixel_info(my_msi)[, c("x", "y", "z")]
+pixel_coords <- pixel_info(my_msi_full)[, c("x", "y", "z")]
 cat("Number of unique positions:\n")
 cat("  x positions:", length(unique(pixel_coords$x)), "\n")
 cat("  y positions:", length(unique(pixel_coords$y)), "\n")
@@ -161,7 +162,7 @@ cat("  z slices:", length(unique(pixel_coords$z)), "\n")
 
 # 4. 验证对象结构
 cat("\n--- Object Structure Validation ---\n")
-check_result <- check_msi_dataset_class(my_msi)
+check_result <- check_msi_dataset_class(my_msi_full)
 
 if (isTRUE(check_result)) {
   cat("✓ Object structure is valid!\n")
