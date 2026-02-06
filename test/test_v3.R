@@ -19,46 +19,10 @@ devtools::load_all()
 # library(msidataset)
 
 # ============================================================================
-# 示例 1: 基础工作流（推荐用于入门）
+#  完整参数使用（推荐用于正式分析）
 # ============================================================================
 
-cat("\n=== Example 1: Basic Workflow ===\n")
-
-# Step 1: 读取 imzML 文件（使用 Cardinal）
-cardinal_obj <- readMSIData(
-  "data/demo data/03-total ion count.imzML",
-  memory = FALSE
-)
-
-# 查看 Cardinal 对象
-print(cardinal_obj)
-
-# Step 2: 转换为 msi_dataset 对象
-my_msi <- convert_cardinal2msi_dataset(
-  cardinal_object = cardinal_obj,
-  sample_name = "demo_sample",
-  section_name = "section_1"
-)
-
-# 查看转换后的对象
-print(my_msi)
-
-# Step 3: 验证数据
-cat("\nData validation:\n")
-cat("Number of variables:", n_variables(my_msi), "\n")
-cat("Number of pixels:", n_pixels(my_msi), "\n")
-cat("m/z range:", paste(round(range(mz(my_msi)), 4), collapse = " - "), "\n")
-
-# Step 4: 保存对象
-dir.create("2_data/output", showWarnings = FALSE, recursive = TRUE)
-saveRDS(my_msi, "2_data/output/my_msi_dataset.rds")
-cat("✓ Object saved to 2_data/output/my_msi_dataset.rds\n")
-
-# ============================================================================
-# 示例 2: 完整参数使用（推荐用于正式分析）
-# ============================================================================
-
-cat("\n=== Example 2: Full Parameters ===\n")
+cat("\n=== Full Parameters ===\n")
 
 # 读取数据
 cardinal_obj <- readMSIData(
@@ -66,7 +30,7 @@ cardinal_obj <- readMSIData(
   memory = FALSE
 )
 
-# 使用完整参数转换v0
+# 使用完整参数转换v0: mz_0001
 my_msi_full <- convert_cardinal2msi_dataset(
   cardinal_object = cardinal_obj,
   tolerance = 10,                      # 对齐容差
@@ -77,7 +41,7 @@ my_msi_full <- convert_cardinal2msi_dataset(
   matrix_name = "NEDC"                  # MALDI 基质
 )
 
-# 使用完整参数转换v1
+# 使用完整参数转换v1: m50_1
 my_msi_full <- convert_cardinal2msi_dataset_v1(
   cardinal_object = cardinal_obj,
   tolerance = 10,                      # 对齐容差
@@ -103,8 +67,8 @@ my_msi <- readRDS("2_data/output/my_msi_dataset.rds")
 # 1. Expression Data
 cat("\n--- Expression Data ---\n")
 cat("Dimensions:", paste(dim(expression_data(my_msi_full)), collapse = " x "), "\n")
-cat("First 5 variables, first 3 pixels:\n")
-print(expression_data(my_msi_full)[1:100, 1:5])
+cat("First 20 variables, first 5 pixels:\n")
+print(expression_data(my_msi_full)[1:20, 1:5])
 
 # 2. Pixel Info
 cat("\n--- Pixel Info ---\n")
@@ -127,7 +91,7 @@ print(sample_info(my_msi_full))
 cat("\n--- Variable Info ---\n")
 cat("Columns:", paste(colnames(variable_info(my_msi_full)), collapse = ", "), "\n")
 cat("Number of variables:", nrow(variable_info(my_msi_full)), "\n")
-print(head(variable_info(my_msi_full), 100))
+print(head(variable_info(my_msi_full), 20))
 
 # m/z 分布
 cat("\nm/z statistics:\n")
