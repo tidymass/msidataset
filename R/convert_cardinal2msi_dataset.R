@@ -13,6 +13,12 @@
 #' @param section_name Section/slice name, default is "section1"
 #' @param resolution Spatial resolution of the acquisition (e.g., "50um"). Default is "unknown"
 #' @param matrix_name Chemical matrix used for ionization. Default is "unknown"
+#' @param variable_id_mode Character string specifying variable ID naming mode:
+#'   - "mz_based" (default): IDs based on m/z integer values (e.g., m50_1, m50_2, m51_1)
+#'   - "sequential": Sequential numbering (e.g., mz_00001, mz_00002)
+#' @param variable_id_prefix Prefix for variable IDs when using mz_based mode. Default is "m"
+#' @param variable_id_separator Separator between mass and count. Default is "_"
+#' @param variable_id_zero_pad Logical, whether to zero-pad count numbers. Default is FALSE
 #' 
 #' @return An msi_dataset object
 #' 
@@ -21,15 +27,16 @@
 #' 1. Automatic peak alignment for MSImagingArrays objects (10ppm tolerance by default)
 #' 2. Extraction of expression matrix (variables × pixels)
 #' 3. Extraction of common m/z reference axis
-#' 4. Extraction of spatial coordinates (supports x, y, z for 3D data)
-#' 5. Construction of pixel_info and sample_info data frames
-#' 6. Creation of the final msi_dataset object
+#' 4. Generation of variable IDs based on m/z values
+#' 5. Extraction of spatial coordinates (supports x, y, z for 3D data)
+#' 6. Construction of pixel_info and sample_info data frames
+#' 7. Creation of the final msi_dataset object
 #' 
-#' The function ensures compatibility with the msi_dataset class structure:
-#' - expression_data: matrix with variables as rows and pixels as columns
-#' - pixel_info: contains pixel_id, x, y, z coordinates
-#' - sample_info: contains sample_id, section_id, z, resolution, matrix
-#' - variable_info: contains variable_id, mz, and ms2 flag
+#' Variable ID naming modes:
+#' - mz_based: IDs reflect the integer m/z value with sequential numbering within each mass
+#'   Example: m/z values 50.001, 50.002, 51.001 become m50_1, m50_2, m51_1
+#' - sequential: Simple sequential numbering (legacy mode)
+#'   Example: mz_00001, mz_00002, mz_00003
 #' 
 #' @export
 #' @examples
@@ -38,26 +45,40 @@
 #' library(Cardinal)
 #' data(MSImagingExperiment)
 #' 
-#' # Convert to msi_dataset
-#' msi_obj <- convert_cardinal2msi_dataset(
+#' # Convert with m/z-based variable IDs (recommended)
+#' msi_obj <- convert_cardinal2msi_dataset_v1(
 #'   cardinal_object = MSImagingExperiment,
 #'   sample_name = "tissue_sample1",
 #'   section_name = "slice_001",
 #'   resolution = "50um",
-#'   matrix_name = "NEDC"
+#'   matrix_name = "DHB",
+#'   variable_id_mode = "mz_based"
+#' )
+#' 
+#' # Convert with sequential variable IDs (legacy)
+#' msi_obj_seq <- convert_cardinal2msi_dataset_v1(
+#'   cardinal_object = MSImagingExperiment,
+#'   variable_id_mode = "sequential"
 #' )
 #' 
 #' # View the object
 #' msi_obj
 #' }
 #' 
-convert_cardinal2msi_dataset <- function(cardinal_object,
+convert_cardinal2msi_dataset_v1 <- function(cardinal_object,
                                          tolerance = 10,
                                          units = "ppm",
                                          sample_name = NULL,
                                          section_name = "section1",
                                          resolution = "unknown",
-                                         matrix_name = "unknown") {
+                                         matrix_name = "unknown",
+                                         variable_id_mode = c("mz_based", "sequential"),
+                                         variable_id_prefix = "m",
+                                         variable_id_separator = "_",
+                                         variable_id_zero_pad = FALSE) {
+  
+  # Match argument
+  variable_id_mode <- match.arg(variable_id_mode)
   
   cat("\n========================================================\n")
   cat("  Cardinal → msi_dataset Conversion (auto-aligned)\n")
@@ -97,9 +118,38 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
     stop("Length of m/z axis does not match number of matrix rows. Check alignment.")
   }
   
+  # ---- Generate variable_id based on selected mode ----
+  cat("      Variable ID mode:", variable_id_mode, "\n")
+  
+  if (variable_id_mode == "mz_based") {
+    # Generate IDs based on m/z values
+    variable_ids <- generate_variable_id_extended(
+      mz_values = mz_values,
+      prefix = variable_id_prefix,
+      separator = variable_id_separator,
+      zero_pad = variable_id_zero_pad,
+      pad_width = 3
+    )
+    
+    # Show some examples
+    n_examples <- min(5, length(variable_ids))
+    cat("      Variable ID examples:\n")
+    for (i in 1:n_examples) {
+      cat("        m/z", round(mz_values[i], 5), "->", variable_ids[i], "\n")
+    }
+    
+  } else {
+    # Sequential mode (legacy)
+    variable_ids <- paste0("mz_", sprintf("%05d", 1:length(mz_values)))
+    cat("      Using sequential numbering: mz_00001, mz_00002, ...\n")
+  }
+  
+  # Validate uniqueness
+  validate_variable_id(variable_ids, mz_values)
+  
   # Create variable_info data frame
   variable_info <- data.frame(
-    variable_id = paste0("mz_", sprintf("%05d", 1:length(mz_values))),
+    variable_id = variable_ids,
     mz = mz_values,
     ms2 = "no",  # Default to "no", can be updated later
     stringsAsFactors = FALSE,
@@ -261,7 +311,8 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   cat("  - Pixels:", nrow(pixel_info), "\n")
   cat("  - Samples:", nrow(sample_info), "\n")
   cat("  - m/z range: [", round(min(mz_values), 4), ",", 
-      round(max(mz_values), 4), "]\n\n")
+      round(max(mz_values), 4), "]\n")
+  cat("  - Variable ID mode:", variable_id_mode, "\n\n")
   
   return(msi_obj)
 }

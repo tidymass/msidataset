@@ -1,13 +1,10 @@
 # ============================================================================
-# convert_cardinal2msi_dataset 完整使用指南 - 修正版
+# convert_cardinal2msi_dataset
 # Author: Xiaoyu Xu
 # Package: msidataset
-# Version: 2.0 (Fixed)
+# Version: 2.0
 # ============================================================================
 
-# ============================================================================
-# 环境设置和包加载
-# ============================================================================
 devtools::document()
 setwd("D:/Shen_lab/msidataset")
 library(S4Vectors)
@@ -15,56 +12,41 @@ library(Cardinal)
 
 devtools::load_all()
 
-# 或者如果已经安装了包
 # library(msidataset)
-
-# ============================================================================
-#  完整参数使用（推荐用于正式分析）
-# ============================================================================
 
 cat("\n=== Full Parameters ===\n")
 
-# 读取数据
+# read data
 cardinal_obj <- readMSIData(
   "data/demo data/03-total ion count.imzML",
-  memory = FALSE
+  memory = FALSE 
 )
 
-# 使用完整参数转换v0: mz_0001
+
+# mz style: m50_1
 my_msi_full <- convert_cardinal2msi_dataset(
   cardinal_object = cardinal_obj,
-  tolerance = 10,                      # 对齐容差
-  units = "ppm",                       # 容差单位
-  sample_name = "rena_cancer", # 样本名称
-  section_name = "slice_01",   # 切片名称
-  resolution = "50um",                 # 空间分辨率
-  matrix_name = "NEDC"                  # MALDI 基质
+  tolerance = 10,                      # ppm
+  units = "ppm",                      
+  sample_name = "renal_cancer", 
+  section_name = "slice_01",   
+  resolution = "50um",                 
+  matrix_name = "NEDC"                  # MALDI matrix
 )
 
-# 使用完整参数转换v1: m50_1
-my_msi_full <- convert_cardinal2msi_dataset_v1(
-  cardinal_object = cardinal_obj,
-  tolerance = 10,                      # 对齐容差
-  units = "ppm",                       # 容差单位
-  sample_name = "rena_cancer", # 样本名称
-  section_name = "slice_01",   # 切片名称
-  resolution = "50um",                 # 空间分辨率
-  matrix_name = "NEDC"                  # MALDI 基质
-)
-
-# 查看对象
+# check data
 print(my_msi_full)
 
-# ============================================================================
-# 示例 3: 查看转换后的数据结构
-# ============================================================================
 
 cat("\n=== Example 3: Explore Data Structure ===\n")
 
-# 重新加载之前保存的对象
-my_msi <- readRDS("2_data/output/my_msi_dataset.rds")
+# save data
+saveRDS(my_msi_full, "data/output/my_msi_dataset_03.rds")
 
-# 1. Expression Data
+# reload data
+my_msi <- readRDS("data/output/my_msi_dataset_03.rds")
+
+# 1. Expression Data (20,5)
 cat("\n--- Expression Data ---\n")
 cat("Dimensions:", paste(dim(expression_data(my_msi_full)), collapse = " x "), "\n")
 cat("First 20 variables, first 5 pixels:\n")
@@ -76,7 +58,7 @@ cat("Columns:", paste(colnames(pixel_info(my_msi_full)), collapse = ", "), "\n")
 cat("Number of pixels:", nrow(pixel_info(my_msi_full)), "\n")
 print(head(pixel_info(my_msi_full), 3))
 
-# 查看空间范围
+# spatial range
 cat("\nSpatial ranges:\n")
 cat("  x: [", min(pixel_info(my_msi_full)$x), ",", max(pixel_info(my_msi_full)$x), "]\n")
 cat("  y: [", min(pixel_info(my_msi_full)$y), ",", max(pixel_info(my_msi_full)$y), "]\n")
@@ -93,41 +75,36 @@ cat("Columns:", paste(colnames(variable_info(my_msi_full)), collapse = ", "), "\
 cat("Number of variables:", nrow(variable_info(my_msi_full)), "\n")
 print(head(variable_info(my_msi_full), 20))
 
-# m/z 分布
+# m/z range
 cat("\nm/z statistics:\n")
 cat("  Min m/z:", round(min(variable_info(my_msi_full)$mz), 4), "\n")
 cat("  Max m/z:", round(max(variable_info(my_msi_full)$mz), 4), "\n")
 cat("  Median m/z:", round(median(variable_info(my_msi_full)$mz), 4), "\n")
 
-# ============================================================================
-# 示例 4: 数据质量检查
-# ============================================================================
 
 cat("\n=== Example 4: Quality Check ===\n")
 
-my_msi <- readRDS("2_data/output/my_msi_dataset.rds")
-
-# 1. 检查数据完整性
+# 1. Data Integrity
 cat("\n--- Data Integrity Check ---\n")
 
-# 检查缺失值
+# Missing values
 na_count <- sum(is.na(expression_data(my_msi_full)))
 cat("Missing values in expression_data:", na_count, "\n")
 
-# 检查零值比例
+# Zero values
 zero_count <- sum(expression_data(my_msi_full) == 0)
 total_count <- nrow(expression_data(my_msi_full)) * ncol(expression_data(my_msi_full))
 cat("Zero values:", zero_count, "(", 
     round(zero_count/total_count*100, 2), "%)\n")
 
-# 2. 检查数据范围
+# 2. data range
 cat("\n--- Data Range Check ---\n")
 cat("Expression data range:\n")
 cat("  Min:", round(min(expression_data(my_msi_full)), 2), "\n")
 cat("  Max:", round(max(expression_data(my_msi_full)), 2), "\n")
 cat("  Mean:", round(mean(as.matrix(expression_data(my_msi_full))), 2), "\n")
 
-# 3. 检查像素分布
+# 3. Pixel Distribution
 cat("\n--- Pixel Distribution ---\n")
 pixel_coords <- pixel_info(my_msi_full)[, c("x", "y", "z")]
 cat("Number of unique positions:\n")
@@ -135,7 +112,7 @@ cat("  x positions:", length(unique(pixel_coords$x)), "\n")
 cat("  y positions:", length(unique(pixel_coords$y)), "\n")
 cat("  z slices:", length(unique(pixel_coords$z)), "\n")
 
-# 4. 验证对象结构
+# 4. Object Structure Validation
 cat("\n--- Object Structure Validation ---\n")
 check_result <- check_msi_dataset_class(my_msi_full)
 
@@ -147,32 +124,28 @@ if (isTRUE(check_result)) {
 }
 
 # ============================================================================
-# 示例 5: 更新和修改元数据
+# Update Metadata examples
 # ============================================================================
 
 cat("\n=== Example 5: Update Metadata ===\n")
 
-my_msi <- readRDS("2_data/output/my_msi_dataset.rds")
-
-# 场景：转换时使用了默认值，现在需要更新实际参数
-
-# 1. 更新 sample_info
+# 1. update sample_info
 cat("\n--- Before Update ---\n")
 print(sample_info(my_msi))
 
-# 更新分辨率和基质信息
+# resolution & matrix
 my_msi@sample_info$resolution <- "75um"
 my_msi@sample_info$matrix <- "CHCA"
 
 cat("\n--- After Update ---\n")
 print(sample_info(my_msi))
 
-# 2. 添加额外的样本信息列
+# 2. additional sample info
 my_msi@sample_info$tissue_type <- "brain"
 my_msi@sample_info$organism <- "mouse"
 my_msi@sample_info$date <- "2025-02-05"
 
-# 更新 sample_info_note
+# update sample_info_note
 new_notes <- data.frame(
   name = c("tissue_type", "organism", "date"),
   meaning = c("Type of tissue", "Source organism", "Collection date"),
@@ -185,12 +158,12 @@ my_msi@sample_info_note <- rbind(
   new_notes
 )
 
-# 验证更新
+# check update
 cat("\n--- Updated Object ---\n")
 print(my_msi)
 
-# 保存更新后的对象
-saveRDS(my_msi, "2_data/output/my_msi_dataset_updated.rds")
+# save update data
+saveRDS(my_msi, "data/output/my_msi_dataset_updated.rds")
 cat("✓ Updated object saved\n")
 
 # ============================================================================
