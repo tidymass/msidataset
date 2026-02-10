@@ -175,58 +175,104 @@ plot_ion_grid <- function(object,
 }
 
 
-#' RGB overlay of three ions
+#' Multi-ion spatial overlay visualization
 #'
 #' @param object An msi_dataset object
-#' @param red_var Variable ID for red channel
-#' @param green_var Variable ID for green channel
-#' @param blue_var Variable ID for blue channel
+#' @param variable_ids Vector of variable IDs to overlay (2 to 10)
+#' @param colors Vector of colors for each ion. If NULL, uses standard R palettes.
 #' @param title Plot title
+#' @param alpha_range Transparency range for intensities (default: c(0, 1))
 #'
 #' @return A ggplot object
 #' @export
-plot_rgb_overlay <- function(object,
-                             red_var,
-                             green_var,
-                             blue_var,
-                             title = "RGB Overlay") {
+plot_multi_ion_overlay <- function(object,
+                                   variable_ids,
+                                   colors = NULL,
+                                   title = "Multi-Ion Overlay",
+                                   alpha_range = c(0, 1)) {
   
+  # 1. 验证输入数量
+  n_vars <- length(variable_ids)
+  if (n_vars < 2 || n_vars > 10) {
+    stop("Please provide between 2 and 10 variable IDs.")
+  }
+  
+  # 2. 获取数据
   expr_data <- expression_data(object)
   pixel_inf <- pixel_info(object)
   
-  # Extract and normalize intensities
-  normalize_channel <- function(var_id) {
-    intensity <- as.numeric(expr_data[var_id, ])
-    (intensity - min(intensity)) / (max(intensity) - min(intensity))
+  # 3. 自动分配颜色 (如果用户未指定)
+  # 使用 R 常用色条：RColorBrewer 的 Set1 或离散色板
+  if (is.null(colors)) {
+    standard_colors <- c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", 
+                         "#FF7F00", "#FFFF33", "#A65628", "#F781BF", 
+                         "#999999", "#000000")
+    colors <- standard_colors[1:n_vars]
   }
   
-  red <- normalize_channel(red_var)
-  green <- normalize_channel(green_var)
-  blue <- normalize_channel(blue_var)
+  # 4. 提取、归一化并混合颜色
+  # 准备基础画板 (黑色背景)
+  total_r <- rep(0, n_pixels(object))
+  total_g <- rep(0, n_pixels(object))
+  total_b <- rep(0, n_pixels(object))
   
-  # Create RGB colors
+  for (i in seq_along(variable_ids)) {
+    var_id <- variable_ids[i]
+    
+    # 检查 ID 是否存在
+    if (!(var_id %in% rownames(expr_data))) {
+      stop(sprintf("Variable '%s' not found.", var_id))
+    }
+    
+    # 归一化强度 (0-1)
+    intensity <- as.numeric(expr_data[var_id, ])
+    norm_int <- (intensity - min(intensity)) / (max(intensity) - min(intensity) + 1e-10)
+    
+    # 获取当前离子的分配颜色
+    col_rgb <- col2rgb(colors[i]) / 255
+    
+    # 混合：强度决定了该颜色分量的贡献
+    total_r <- total_r + (col_rgb[1] * norm_int)
+    total_g <- total_g + (col_rgb[2] * norm_int)
+    total_b <- total_b + (col_rgb[3] * norm_int)
+  }
+  
+  # 限制最大值为 1 (防止过曝)
+  total_r <- pmin(total_r, 1)
+  total_g <- pmin(total_g, 1)
+  total_b <- pmin(total_b, 1)
+  
+  # 5. 创建绘图数据
   plot_data <- data.frame(
     x = pixel_inf$x,
     y = pixel_inf$y,
-    color = rgb(red, green, blue)
+    mixed_color = rgb(total_r, total_g, total_b)
   )
   
-  # Plot
-  ggplot(plot_data, aes(x = x, y = y, fill = color)) +
+  # 6. 生成图例说明
+  legend_text <- paste(mapply(function(v, c) paste0(v, "(", c, ")"), 
+                              variable_ids, colors), collapse = " | ")
+  
+  # 7. 绘图
+  p <- ggplot(plot_data, aes(x = x, y = y, fill = mixed_color)) +
     geom_tile() +
     scale_fill_identity() +
     coord_equal() +
     labs(
       title = title,
-      subtitle = sprintf("R: %s | G: %s | B: %s", red_var, green_var, blue_var),
+      subtitle = paste("Ions Overlay:", legend_text),
       x = "X coordinate",
       y = "Y coordinate"
     ) +
-    theme_minimal() +
+    theme_dark() + # 使用深色背景更符合叠加图习惯
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"),
-      plot.subtitle = element_text(hjust = 0.5, size = 9)
+      plot.subtitle = element_text(hjust = 0.5, size = 8, color = "gray30"),
+      panel.background = element_rect(fill = "black"), # 纯黑背景
+      panel.grid = element_blank()
     )
+  
+  return(p)
 }
 
 
@@ -425,6 +471,50 @@ print.morans_i_result <- function(x, ...) {
   } else {
     cat("Significance: Not significant (p >= 0.05)\n")
   }
+}
+
+#' Plot all ions belonging to the same m/z integer group
+#'
+#' @param object An msi_dataset object
+#' @param mz_value A numeric m/z value (e.g., 60.5)
+#' @param ncol Number of columns in the output grid
+#' @param ... Additional arguments passed to plot_ion_grid (color_scale, transform, etc.)
+#'
+#' @return A grid of ggplot objects
+#' @export
+plot_mz_group <- function(object, mz_value, ncol = 3, ...) {
+  
+  # 1. 提取整数部分并构建匹配模式
+  mz_int <- floor(mz_value)
+  pattern <- paste0("^m", mz_int, "_\\d+$")
+  
+  # 2. 从对象中获取所有真实的 ID
+  all_ids <- rownames(expression_data(object))
+  matched_ids <- all_ids[grep(pattern, all_ids)]
+  
+  # 3. 检查是否匹配到离子
+  if (length(matched_ids) == 0) {
+    stop(sprintf("No variables found in the group 'm%d_'. Please check your ID naming.", mz_int))
+  }
+  
+  # 4. 对 ID 进行数值排序 (确保 m60_2 排在 m60_10 前面)
+  # 提取下划线后的数字进行排序
+  suffix_nums <- as.numeric(gsub(paste0("^m", mz_int, "_"), "", matched_ids))
+  matched_ids <- matched_ids[order(suffix_nums)]
+  
+  cat(sprintf("Found %d ions for m/z group %d: %s\n", 
+              length(matched_ids), mz_int, paste(matched_ids, collapse = ", ")))
+  
+  # 5. 调用你已有的 grid 绘图函数
+  # 使用 ... 传递 color_scale, transform 等参数
+  p <- plot_ion_grid(
+    object = object,
+    variable_ids = matched_ids,
+    ncol = ncol,
+    ...
+  )
+  
+  return(p)
 }
 
 
@@ -712,4 +802,4 @@ plot_spatial_pca <- function(object,
     scores = pc_scores,
     variance_explained = var_explained
   ))
-}
+}                                                                                                   

@@ -59,22 +59,22 @@ cat("    z:", paste(range(pixel_info(my_msi)$z), collapse = " - "), "\n")
 
 cat("\n=== Step 2: Convert MSI to Mass Dataset ===\n")
 
-# 基础转换（推荐）
+# choice 1: basic
 my_mass <- convert_msi2mass_dataset(
   msi_object = my_msi,
   save_metadata = TRUE,  # 保存元数据到环境
   add_spatial_to_sample_info = FALSE  # 不添加空间坐标到 sample_info
 )
 
-# 或者：保存元数据到文件（用于长期保存或跨 session）
+# choice 2: Persist metadata to a file
 my_mass <- convert_msi2mass_dataset(
-  msi_object = my_msi,
+  msi_object = my_msi_full,
   save_metadata = TRUE,
-  metadata_path = "2_data/output/msi_metadata.rds",  # 保存到文件
+  metadata_path = "data/output/msi_metadata.rds",  # 保存到文件
   add_spatial_to_sample_info = TRUE  # 可选：添加 x,y,z 到 sample_info
 )
 
-# 查看 mass_dataset 结构
+# check structure of mass_dataset
 print(my_mass)
 
 cat("\nMass Dataset summary:\n")
@@ -83,7 +83,7 @@ cat("  Samples:", nrow(my_mass@sample_info), "\n")
 
 # 查看 sample_info
 cat("\nSample info preview:\n")
-print(head(my_mass@sample_info, 5))
+print(head(my_mass@sample_info, 10))
 
 # ============================================================================
 # 步骤 3: 使用 massdataset 进行分析

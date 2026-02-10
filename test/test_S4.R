@@ -7,10 +7,12 @@
 
 devtools::document()
 setwd("D:/Shen_lab/msidataset")
+devtools::load_all()
+
 library(S4Vectors)
 library(Cardinal)
+library(massdataset)
 
-devtools::load_all()
 
 # library(msidataset)
 
@@ -56,7 +58,7 @@ print(expression_data(my_msi_full)[1:20, 1:5])
 cat("\n--- Pixel Info ---\n")
 cat("Columns:", paste(colnames(pixel_info(my_msi_full)), collapse = ", "), "\n")
 cat("Number of pixels:", nrow(pixel_info(my_msi_full)), "\n")
-print(head(pixel_info(my_msi_full), 3))
+print(head(pixel_info(my_msi_full), 10))
 
 # spatial range
 cat("\nSpatial ranges:\n")
@@ -134,16 +136,16 @@ cat("\n--- Before Update ---\n")
 print(sample_info(my_msi))
 
 # resolution & matrix
-my_msi@sample_info$resolution <- "75um"
+my_msi@sample_info$resolution <- "10um"
 my_msi@sample_info$matrix <- "CHCA"
 
 cat("\n--- After Update ---\n")
 print(sample_info(my_msi))
 
 # 2. additional sample info
-my_msi@sample_info$tissue_type <- "brain"
-my_msi@sample_info$organism <- "mouse"
-my_msi@sample_info$date <- "2025-02-05"
+my_msi@sample_info$tissue_type <- "renal tumor"
+my_msi@sample_info$organism <- "human"
+my_msi@sample_info$date <- "2026-02-10"
 
 # update sample_info_note
 new_notes <- data.frame(

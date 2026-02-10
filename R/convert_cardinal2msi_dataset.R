@@ -65,7 +65,7 @@
 #' msi_obj
 #' }
 #' 
-convert_cardinal2msi_dataset_v1 <- function(cardinal_object,
+convert_cardinal2msi_dataset <- function(cardinal_object,
                                          tolerance = 10,
                                          units = "ppm",
                                          sample_name = NULL,
