@@ -2,10 +2,16 @@
 % Please edit documentation in R/all_generics.R
 \name{variable_info_note}
 \alias{variable_info_note}
-\title{Get variable info note}
+\title{variable_info_note}
 \usage{
-variable_info_note(object, ...)
+variable_info_note(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+data.frame
 }
 \description{
-Get variable info note
+Get variable information notes
 }

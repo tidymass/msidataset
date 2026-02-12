@@ -2,9 +2,15 @@
 % Please edit documentation in R/all_generics.R
 \name{ms2_data}
 \alias{ms2_data}
-\title{Get MS2 data}
+\title{ms2_data}
 \usage{
-ms2_data(object, ...)
+ms2_data(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+list
 }
 \description{
 Get MS2 data

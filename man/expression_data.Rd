@@ -2,9 +2,15 @@
 % Please edit documentation in R/all_generics.R
 \name{expression_data}
 \alias{expression_data}
-\title{Get expression data}
+\title{expression_data}
 \usage{
-expression_data(object, ...)
+expression_data(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+Matrix, data.frame, or DelayedArray
 }
 \description{
 Get expression data

@@ -1,318 +1,314 @@
-#' Convert Cardinal Object to msi_dataset
-#' 
-#' @author Xiaoyu Xu
+#' Convert Cardinal MSImageSet to msi_dataset
+#'
 #' @description
-#' Converts a Cardinal MSImagingExperiment or MSImagingArrays object to an msi_dataset object.
-#' For MSImagingArrays (Processed mode), automatic peak alignment is performed at 10ppm 
-#' to establish a common reference m/z axis.
-#' 
-#' @param cardinal_object A Cardinal object (MSImagingExperiment or MSImagingArrays)
-#' @param tolerance Alignment tolerance, default is 10
-#' @param units Tolerance unit, default is "ppm"
-#' @param sample_name Sample name. If NULL, extracted from Cardinal object or set to "sample1"
-#' @param section_name Section/slice name, default is "section1"
-#' @param resolution Spatial resolution of the acquisition (e.g., "50um"). Default is "unknown"
-#' @param matrix_name Chemical matrix used for ionization. Default is "unknown"
-#' @param variable_id_mode Character string specifying variable ID naming mode:
-#'   - "mz_based" (default): IDs based on m/z integer values (e.g., m50_1, m50_2, m51_1)
-#'   - "sequential": Sequential numbering (e.g., mz_00001, mz_00002)
-#' @param variable_id_prefix Prefix for variable IDs when using mz_based mode. Default is "m"
-#' @param variable_id_separator Separator between mass and count. Default is "_"
-#' @param variable_id_zero_pad Logical, whether to zero-pad count numbers. Default is FALSE
-#' 
+#' Converts a Cardinal MSImageSet object to the new msi_dataset structure
+#' that is compatible with massdataset. Pixels are stored in sample_info.
+#'
+#' @param cardinal_object A Cardinal MSImageSet or MSImagingExperiment object
+#' @param sample_id Optional sample identifier for the dataset
+#' @param section_id Optional section identifier
+#' @param resolution Optional spatial resolution in micrometers
+#' @param matrix Optional matrix used for ionization (e.g., "DHB", "CHCA")
 #' @return An msi_dataset object
-#' 
-#' @details
-#' This function performs the following steps:
-#' 1. Automatic peak alignment for MSImagingArrays objects (10ppm tolerance by default)
-#' 2. Extraction of expression matrix (variables × pixels)
-#' 3. Extraction of common m/z reference axis
-#' 4. Generation of variable IDs based on m/z values
-#' 5. Extraction of spatial coordinates (supports x, y, z for 3D data)
-#' 6. Construction of pixel_info and sample_info data frames
-#' 7. Creation of the final msi_dataset object
-#' 
-#' Variable ID naming modes:
-#' - mz_based: IDs reflect the integer m/z value with sequential numbering within each mass
-#'   Example: m/z values 50.001, 50.002, 51.001 become m50_1, m50_2, m51_1
-#' - sequential: Simple sequential numbering (legacy mode)
-#'   Example: mz_00001, mz_00002, mz_00003
-#' 
 #' @export
 #' @examples
 #' \dontrun{
-#' # Load Cardinal data
 #' library(Cardinal)
-#' data(MSImagingExperiment)
+#' # Load Cardinal data
+#' data <- readMSIData("path/to/imzML")
 #' 
-#' # Convert with m/z-based variable IDs (recommended)
-#' msi_obj <- convert_cardinal2msi_dataset_v1(
-#'   cardinal_object = MSImagingExperiment,
-#'   sample_name = "tissue_sample1",
-#'   section_name = "slice_001",
-#'   resolution = "50um",
-#'   matrix_name = "DHB",
-#'   variable_id_mode = "mz_based"
+#' # Convert to msi_dataset
+#' msi_obj <- convert_cardinal2msi_dataset(
+#'   cardinal_object = data,
+#'   sample_id = "mouse_brain_1",
+#'   section_id = "section_1",
+#'   resolution = 50,
+#'   matrix = "DHB"
 #' )
-#' 
-#' # Convert with sequential variable IDs (legacy)
-#' msi_obj_seq <- convert_cardinal2msi_dataset_v1(
-#'   cardinal_object = MSImagingExperiment,
-#'   variable_id_mode = "sequential"
-#' )
-#' 
-#' # View the object
-#' msi_obj
 #' }
-#' 
+
 convert_cardinal2msi_dataset <- function(cardinal_object,
-                                         tolerance = 10,
-                                         units = "ppm",
-                                         sample_name = NULL,
-                                         section_name = "section1",
-                                         resolution = "unknown",
-                                         matrix_name = "unknown",
-                                         variable_id_mode = c("mz_based", "sequential"),
-                                         variable_id_prefix = "m",
-                                         variable_id_separator = "_",
-                                         variable_id_zero_pad = FALSE) {
+                                         sample_id = "sample_1",
+                                         section_id = "section_1", 
+                                         resolution = NA,
+                                         matrix = NA) {
   
-  # Match argument
-  variable_id_mode <- match.arg(variable_id_mode)
+  # Check Cardinal package
+  if (!requireNamespace("Cardinal", quietly = TRUE)) {
+    stop("Package 'Cardinal' is required but not installed.")
+  }
   
-  cat("\n========================================================\n")
-  cat("  Cardinal → msi_dataset Conversion (auto-aligned)\n")
-  cat("========================================================\n\n")
-  
-  # ---- Step 1: Peak Alignment ----
-  # MSImagingArrays are unaligned and must establish a common m/z axis
-  if (is(cardinal_object, "MSImagingArrays")) {
-    cat("[1/7] MSImagingArrays detected, performing automatic alignment...\n")
-    cat("      Tolerance:", tolerance, units, "\n")
-    
-    # This step converts Arrays to aligned Experiment object
-    cardinal_object <- Cardinal::peakAlign(cardinal_object, 
-                                           tolerance = tolerance, 
-                                           units = units)
-    cat("  ✓ Alignment completed, converted to MSImagingExperiment\n\n")
+  # ========== Extract expression data ==========
+  # Get intensity matrix
+  if (methods::is(cardinal_object, "MSImageSet")) {
+    expression_data <- Cardinal::iData(cardinal_object)
+  } else if (methods::is(cardinal_object, "MSImagingExperiment")) {
+    expression_data <- Cardinal::spectra(cardinal_object)
   } else {
-    cat("[1/7] Input object is already aligned (MSImagingExperiment)\n")
-    cat("      Skipping alignment step\n\n")
+    stop("cardinal_object must be MSImageSet or MSImagingExperiment")
   }
   
-  # ---- Step 2: Extract Expression Matrix ----
-  cat("[2/7] Extracting expression matrix...\n")
-  # After alignment, spectra() returns a regular matrix
-  expr_matrix <- as.matrix(Cardinal::spectra(cardinal_object))
-  
-  cat("      Dimensions:", nrow(expr_matrix), "variables ×", 
-      ncol(expr_matrix), "pixels\n")
-  cat("  ✓ Expression matrix extracted\n\n")
-  
-  # ---- Step 3: Extract Common m/z Reference Axis ----
-  cat("[3/7] Extracting common m/z reference axis...\n")
-  # After alignment, mz(object) is a unique feature vector
-  mz_values <- as.numeric(Cardinal::mz(cardinal_object))
-  
-  if (length(mz_values) != nrow(expr_matrix)) {
-    stop("Length of m/z axis does not match number of matrix rows. Check alignment.")
+  # Convert to matrix if needed
+  if (methods::is(expression_data, "matter_mat")) {
+    expression_data <- as.matrix(expression_data)
   }
   
-  # ---- Generate variable_id based on selected mode ----
-  cat("      Variable ID mode:", variable_id_mode, "\n")
+  # ========== Extract spatial coordinates (now goes into sample_info) ==========
+  coord_data <- Cardinal::coord(cardinal_object)
   
-  if (variable_id_mode == "mz_based") {
-    # Generate IDs based on m/z values
-    variable_ids <- generate_variable_id_extended(
-      mz_values = mz_values,
-      prefix = variable_id_prefix,
-      separator = variable_id_separator,
-      zero_pad = variable_id_zero_pad,
-      pad_width = 3
-    )
-    
-    # Show some examples
-    n_examples <- min(5, length(variable_ids))
-    cat("      Variable ID examples:\n")
-    for (i in 1:n_examples) {
-      cat("        m/z", round(mz_values[i], 5), "->", variable_ids[i], "\n")
+  # Create pixel IDs
+  pixel_ids <- paste0("pixel_", 
+                      sprintf("%04d", coord_data$x), "_",
+                      sprintf("%04d", coord_data$y), "_",
+                      sprintf("%02d", coord_data$z))
+  
+  # ========== Create sample_info (contains pixel spatial data) ==========
+  sample_info <- data.frame(
+    sample_id = pixel_ids,
+    x = coord_data$x,
+    y = coord_data$y,
+    z = if ("z" %in% colnames(coord_data)) coord_data$z else 1,
+    stringsAsFactors = FALSE
+  )
+  
+  # Add optional metadata
+  sample_info$section_id <- section_id
+  if (!is.na(resolution)) {
+    sample_info$resolution <- resolution
+  }
+  if (!is.na(matrix)) {
+    sample_info$matrix <- matrix
+  }
+  
+  # Add run/acquisition info if available
+  if (methods::is(cardinal_object, "MSImageSet")) {
+    if ("run" %in% colnames(Cardinal::pixelData(cardinal_object))) {
+      sample_info$run <- Cardinal::pixelData(cardinal_object)$run
     }
-    
-  } else {
-    # Sequential mode (legacy)
-    variable_ids <- paste0("mz_", sprintf("%05d", 1:length(mz_values)))
-    cat("      Using sequential numbering: mz_00001, mz_00002, ...\n")
+  } else if (methods::is(cardinal_object, "MSImagingExperiment")) {
+    pdata <- Cardinal::pixelData(cardinal_object)
+    if ("run" %in% colnames(pdata)) {
+      sample_info$run <- pdata$run
+    }
   }
   
-  # Validate uniqueness
-  validate_variable_id(variable_ids, mz_values)
+  # ========== Create variable_info ==========
+  # Get m/z values
+  if (methods::is(cardinal_object, "MSImageSet")) {
+    mz_values <- Cardinal::mz(cardinal_object)
+  } else {
+    mz_values <- Cardinal::mz(cardinal_object)
+  }
   
-  # Create variable_info data frame
+  # Create variable IDs
+  variable_ids <- paste0("mz_", sprintf("%.4f", mz_values))
+  
   variable_info <- data.frame(
     variable_id = variable_ids,
     mz = mz_values,
-    ms2 = "no",  # Default to "no", can be updated later
-    stringsAsFactors = FALSE,
-    check.names = FALSE
+    ms2 = FALSE,  # Assume MS1 data unless specified
+    stringsAsFactors = FALSE
   )
   
-  cat("      m/z range: [", round(min(mz_values), 4), ",", 
-      round(max(mz_values), 4), "]\n")
-  cat("      Number of variables:", nrow(variable_info), "\n")
-  cat("  ✓ variable_info created\n\n")
+  # ========== Set dimnames ==========
+  colnames(expression_data) <- sample_info$sample_id
+  rownames(expression_data) <- variable_info$variable_id
   
-  # ---- Step 4: Extract Spatial Coordinates (3D supported) ----
-  cat("[4/7] Extracting spatial coordinates...\n")
-  pdata <- Cardinal::pixelData(cardinal_object)
-  
-  # Automatically detect x, y, z coordinates
-  coord_names <- intersect(c("x", "y", "z"), names(pdata))
-  coord_data <- as.data.frame(pdata[, coord_names, drop = FALSE])
-  
-  # Force conversion of S4 vectors to standard numeric
-  for (col in names(coord_data)) {
-    coord_data[[col]] <- as.numeric(as.vector(coord_data[[col]]))
-  }
-  
-  # Ensure z column exists (required by msi_dataset structure)
-  if (!"z" %in% colnames(coord_data)) {
-    coord_data$z <- 1  # Default z slice
-  }
-  
-  cat("      Spatial dimensions:", length(coord_names), "D\n")
-  cat("      x range: [", min(coord_data$x), ",", max(coord_data$x), "]\n")
-  cat("      y range: [", min(coord_data$y), ",", max(coord_data$y), "]\n")
-  if ("z" %in% coord_names) {
-    cat("      z range: [", min(coord_data$z), ",", max(coord_data$z), "]\n")
-  }
-  cat("  ✓ Spatial coordinates extracted\n\n")
-  
-  # ---- Step 5: Extract Sample Information ----
-  cat("[5/7] Extracting sample information...\n")
-  
-  # Determine sample_id
-  if (!is.null(sample_name)) {
-    sample_ids <- rep(sample_name, ncol(expr_matrix))
-  } else if ("run" %in% names(pdata)) {
-    sample_ids <- as.character(pdata$run)
-  } else {
-    sample_ids <- rep("sample1", ncol(expr_matrix))
-  }
-  
-  # Create pixel_info data frame
-  pixel_info <- data.frame(
-    pixel_id = paste0("pixel_", sprintf("%05d", 1:ncol(expr_matrix))),
-    x = coord_data$x,
-    y = coord_data$y,
-    z = coord_data$z,
-    stringsAsFactors = FALSE,
-    check.names = FALSE
-  )
-  
-  cat("      Number of pixels:", nrow(pixel_info), "\n")
-  cat("      Number of unique samples:", length(unique(sample_ids)), "\n")
-  cat("  ✓ pixel_info created\n\n")
-  
-  # ---- Step 6: Create sample_info ----
-  cat("[6/7] Creating sample_info...\n")
-  
-  # Get unique z slices to create sample_info
-  unique_z <- unique(coord_data$z)
-  
-  sample_info <- data.frame(
-    sample_id = unique(sample_ids),
-    section_id = section_name,
-    z = unique_z,
-    resolution = resolution,
-    matrix = matrix_name,
-    stringsAsFactors = FALSE,
-    check.names = FALSE
-  )
-  
-  # If there are multiple z slices, create multiple sample entries
-  if (length(unique_z) > 1 && length(unique(sample_ids)) == 1) {
-    sample_info <- data.frame(
-      sample_id = paste0(sample_info$sample_id[1], "_z", unique_z),
-      section_id = paste0(section_name, "_z", unique_z),
-      z = unique_z,
-      resolution = resolution,
-      matrix = matrix_name,
-      stringsAsFactors = FALSE,
-      check.names = FALSE
-    )
-  }
-  
-  cat("      Number of samples:", nrow(sample_info), "\n")
-  cat("  ✓ sample_info created\n\n")
-  
-  # ---- Step 7: Construct msi_dataset Object ----
-  cat("[7/7] Constructing msi_dataset object...\n")
-  
-  # Set row and column names for expression_data
-  rownames(expr_matrix) <- variable_info$variable_id
-  colnames(expr_matrix) <- pixel_info$pixel_id
-  
-  # Convert to data.frame
-  expr_data_df <- as.data.frame(expr_matrix)
-  
-  # Create info_note data frames
-  pixel_info_note <- data.frame(
-    name = colnames(pixel_info),
+  # ========== Create sample_info_note ==========
+  sample_info_note <- data.frame(
+    name = c("sample_id", "x", "y", "z", "section_id"),
     meaning = c(
       "Pixel ID",
       "Horizontal spatial coordinate in the matrix",
-      "Vertical spatial coordinate in the image",
-      "Tissue slice depth / relative to a reference slice"
-    ),
-    stringsAsFactors = FALSE,
-    check.names = FALSE
-  )
-  
-  sample_info_note <- data.frame(
-    name = colnames(sample_info),
-    meaning = c(
-      "Unique identifier for the biological sample",
-      "Identifier for the specific tissue section/slice",
+      "Vertical spatial coordinate in the image", 
       "Tissue slice depth / relative to a reference slice",
-      "Spatial resolution of the acquisition (e.g., 50µm)",
-      "Chemical matrix used for ionization"
+      "Identifier for the specific tissue section/slice"
     ),
-    stringsAsFactors = FALSE,
-    check.names = FALSE
+    stringsAsFactors = FALSE
   )
   
+  # Add optional metadata notes
+  if (!is.na(resolution)) {
+    sample_info_note <- rbind(
+      sample_info_note,
+      data.frame(
+        name = "resolution",
+        meaning = paste0("Spatial resolution of the acquisition (e.g., ", resolution, "μm)"),
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+  
+  if (!is.na(matrix)) {
+    sample_info_note <- rbind(
+      sample_info_note,
+      data.frame(
+        name = "matrix",
+        meaning = "Chemical matrix used for ionization",
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+  
+  if ("run" %in% colnames(sample_info)) {
+    sample_info_note <- rbind(
+      sample_info_note,
+      data.frame(
+        name = "run",
+        meaning = "Acquisition run identifier",
+        stringsAsFactors = FALSE
+      )
+    )
+  }
+  
+  # ========== Create variable_info_note ==========
   variable_info_note <- data.frame(
-    name = colnames(variable_info),
+    name = c("variable_id", "mz", "ms2"),
     meaning = c(
       "Variable ID",
       "Mass to charge ratio",
-      "Yes or no"
+      "Whether MS2 data is available (TRUE/FALSE)"
     ),
-    stringsAsFactors = FALSE,
-    check.names = FALSE
+    stringsAsFactors = FALSE
   )
   
-  # Create the msi_dataset object
+  # ========== Create msi_dataset object ==========
   msi_obj <- create_msi_dataset(
-    expression_data = expr_data_df,
-    pixel_info = pixel_info,
+    expression_data = expression_data,
     sample_info = sample_info,
     variable_info = variable_info,
-    pixel_info_note = pixel_info_note,
     sample_info_note = sample_info_note,
     variable_info_note = variable_info_note
   )
   
-  cat("========================================================\n")
-  cat(" ✓ Conversion successful!\n")
-  cat("========================================================\n")
-  cat("\nSummary:\n")
-  cat("  - Variables:", nrow(variable_info), "\n")
-  cat("  - Pixels:", nrow(pixel_info), "\n")
-  cat("  - Samples:", nrow(sample_info), "\n")
-  cat("  - m/z range: [", round(min(mz_values), 4), ",", 
-      round(max(mz_values), 4), "]\n")
-  cat("  - Variable ID mode:", variable_id_mode, "\n\n")
+  # ========== Add Cardinal metadata to process_info ==========
+  parameter <- new(
+    Class = "tidymass_parameter",
+    pacakge_name = "msidataset",
+    function_name = "convert_cardinal2msi_dataset()",
+    parameter = list(
+      sample_id = sample_id,
+      section_id = section_id,
+      resolution = resolution,
+      matrix = matrix,
+      cardinal_class = class(cardinal_object)[1]
+    ),
+    time = Sys.time()
+  )
+  
+  msi_obj@process_info$convert_from_cardinal <- parameter
   
   return(msi_obj)
+}
+
+
+#' Convert msi_dataset to Cardinal MSImagingExperiment
+#'
+#' @description
+#' Converts an msi_dataset object to a Cardinal MSImagingExperiment object.
+#' Useful for using Cardinal-specific visualization and analysis functions.
+#'
+#' @param msi_object An msi_dataset object
+#' @return A Cardinal MSImagingExperiment object
+#' @export
+#' @examples
+#' \dontrun{
+#' # Convert msi_dataset to Cardinal
+#' cardinal_obj <- convert_msi_dataset2cardinal(msi_obj)
+#' 
+#' # Now use Cardinal functions
+#' Cardinal::image(cardinal_obj, mz = 500)
+#' }
+
+convert_msi_dataset2cardinal <- function(msi_object) {
+  
+  # Check Cardinal package
+  if (!requireNamespace("Cardinal", quietly = TRUE)) {
+    stop("Package 'Cardinal' is required but not installed.")
+  }
+  
+  # Extract data
+  expr_data <- expression_data(msi_object)
+  samp_info <- sample_info(msi_object)
+  var_info <- variable_info(msi_object)
+  
+  # Create coordinate data frame
+  coord_df <- data.frame(
+    x = samp_info$x,
+    y = samp_info$y,
+    z = samp_info$z
+  )
+  
+  # Get m/z values
+  if ("mz" %in% colnames(var_info)) {
+    mz_values <- var_info$mz
+  } else {
+    stop("variable_info must contain 'mz' column")
+  }
+  
+  # Create MSImagingExperiment
+  cardinal_obj <- Cardinal::MSImagingExperiment(
+    imageData = expr_data,
+    featureData = Cardinal::MassDataFrame(mz = mz_values),
+    pixelData = Cardinal::PositionDataFrame(coord = coord_df)
+  )
+  
+  return(cardinal_obj)
+}
+
+
+#' Batch convert multiple Cardinal objects to msi_dataset
+#'
+#' @description
+#' Converts multiple Cardinal objects (e.g., multiple tissue sections) 
+#' to a single msi_dataset object.
+#'
+#' @param cardinal_list List of Cardinal MSImageSet or MSImagingExperiment objects
+#' @param sample_ids Character vector of sample identifiers (one per object)
+#' @param section_ids Character vector of section identifiers (one per object)
+#' @param resolution Numeric vector of spatial resolutions
+#' @param matrix Character vector of matrix names
+#' @return An msi_dataset object containing all sections
+#' @export
+
+batch_convert_cardinal2msi_dataset <- function(cardinal_list,
+                                               sample_ids = NULL,
+                                               section_ids = NULL,
+                                               resolution = NA,
+                                               matrix = NA) {
+  
+  n_objects <- length(cardinal_list)
+  
+  # Set default IDs if not provided
+  if (is.null(sample_ids)) {
+    sample_ids <- paste0("sample_", seq_len(n_objects))
+  }
+  if (is.null(section_ids)) {
+    section_ids <- paste0("section_", seq_len(n_objects))
+  }
+  
+  # Replicate resolution and matrix if single values
+  if (length(resolution) == 1) {
+    resolution <- rep(resolution, n_objects)
+  }
+  if (length(matrix) == 1) {
+    matrix <- rep(matrix, n_objects)
+  }
+  
+  # Convert each object
+  msi_list <- lapply(seq_len(n_objects), function(i) {
+    convert_cardinal2msi_dataset(
+      cardinal_object = cardinal_list[[i]],
+      sample_id = sample_ids[i],
+      section_id = section_ids[i],
+      resolution = resolution[i],
+      matrix = matrix[i]
+    )
+  })
+  
+  # Combine all objects
+  # This would require a combine_msi_dataset function
+  # For now, return the list
+  message("Multiple msi_dataset objects created. Consider using combine_msi_dataset() to merge them.")
+  return(msi_list)
 }

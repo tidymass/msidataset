@@ -2,9 +2,15 @@
 % Please edit documentation in R/all_generics.R
 \name{n_variables}
 \alias{n_variables}
-\title{Get number of variables}
+\title{n_variables}
 \usage{
-n_variables(object, ...)
+n_variables(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+Integer
 }
 \description{
 Get number of variables

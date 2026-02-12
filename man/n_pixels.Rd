@@ -2,10 +2,16 @@
 % Please edit documentation in R/all_generics.R
 \name{n_pixels}
 \alias{n_pixels}
-\title{Get number of pixels}
+\title{n_pixels}
 \usage{
-n_pixels(object, ...)
+n_pixels(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+Integer
 }
 \description{
-Get number of pixels
+Get number of pixels (alias for n_samples)
 }

@@ -2,10 +2,16 @@
 % Please edit documentation in R/all_generics.R
 \name{sample_info_note}
 \alias{sample_info_note}
-\title{Get sample info note}
+\title{sample_info_note}
 \usage{
-sample_info_note(object, ...)
+sample_info_note(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+data.frame
 }
 \description{
-Get sample info note
+Get sample information notes (contains pixel info notes)
 }

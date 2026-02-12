@@ -16,17 +16,16 @@ Returns \code{TRUE} if the object is valid, otherwise returns a character vector
 \description{
 This function checks the validity of a msi_dataset object.
 It performs various checks on the object's slots to ensure they meet the required criteria.
+The structure now matches massdataset for better compatibility.
 }
 \examples{
 data("expression_data")
-data("pixel_info")
-data("variable_info")
 data("sample_info")
+data("variable_info")
 object <-
   create_msi_dataset(expression_data = expression_data,
-                      pixel_info = pixel_info,
-                      variable_info = variable_info,
-                      sample_info = sample_info)
+                      sample_info = sample_info,
+                      variable_info = variable_info)
   check_msi_dataset_class(object)
 }
 \author{

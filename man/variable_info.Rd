@@ -2,9 +2,15 @@
 % Please edit documentation in R/all_generics.R
 \name{variable_info}
 \alias{variable_info}
-\title{Get variable information}
+\title{variable_info}
 \usage{
-variable_info(object, ...)
+variable_info(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+data.frame
 }
 \description{
 Get variable information

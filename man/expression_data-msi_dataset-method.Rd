@@ -10,7 +10,7 @@
 \item{object}{A msi_dataset object}
 }
 \value{
-data.frame
+matrix, data.frame, or DelayedArray
 }
 \description{
 Get expression data

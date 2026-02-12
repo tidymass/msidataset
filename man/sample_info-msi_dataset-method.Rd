@@ -2,7 +2,7 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{sample_info,msi_dataset-method}
 \alias{sample_info,msi_dataset-method}
-\title{Get sample information}
+\title{Get sample information (now contains pixel spatial data)}
 \usage{
 \S4method{sample_info}{msi_dataset}(object)
 }
@@ -13,5 +13,5 @@
 data.frame
 }
 \description{
-Get sample information
+Get sample information (now contains pixel spatial data)
 }

@@ -7,24 +7,19 @@
 \usage{
 create_msi_dataset(
   expression_data,
-  pixel_info,
   sample_info,
   variable_info,
-  pixel_info_note,
   sample_info_note,
   variable_info_note
 )
 }
 \arguments{
-\item{expression_data}{Expression data matrix (variables × pixels).}
+\item{expression_data}{Expression data matrix/data.frame (variables × pixels).}
 
-\item{pixel_info}{Pixel information data.frame with pixel_id, x, y, z columns.}
-
-\item{sample_info}{Sample information data.frame with sample_id column.}
+\item{sample_info}{Sample/pixel information data.frame with required columns:
+sample_id (pixel ID), x, y, z. Optional: section_id, resolution, matrix.}
 
 \item{variable_info}{Variable information data.frame with variable_id, mz columns.}
-
-\item{pixel_info_note}{Optional. Descriptions for pixel_info columns.}
 
 \item{sample_info_note}{Optional. Descriptions for sample_info columns.}
 
@@ -34,29 +29,44 @@ create_msi_dataset(
 An object of class \code{msi_dataset}.
 }
 \description{
-This function creates a new msi_dataset object
-by taking in various data frames and performing checks on them.
+This function creates a new msi_dataset object with structure matching massdataset.
+Pixels are now treated as samples, stored in sample_info with spatial coordinates.
+This allows direct compatibility with massdataset functions.
 }
 \examples{
 \dontrun{
-data("expression_data")
-data("pixel_info")
-data("pixel_info_note")
-data("sample_info")
-data("sample_info_note")
-data("variable_info")
-data("variable_info_note")
-object =
-  create_msi_dataset(
-    expression_data = expression_data,
-    pixel_info = pixel_info,
-    sample_info = sample_info,
-    variable_info = variable_info,
-    pixel_info_note = pixel_info_note,
-    sample_info_note = sample_info_note,
-    variable_info_note = variable_info_note
-  )
-object
+# Create sample_info (formerly pixel_info + sample_info combined)
+sample_info <- data.frame(
+  sample_id = paste0("pixel_", 1:1000),
+  x = rep(1:40, 25),
+  y = rep(1:25, each = 40),
+  z = 1,
+  section_id = "section_1",
+  resolution = 50,
+  matrix = "DHB"
+)
+
+# Create variable_info
+variable_info <- data.frame(
+  variable_id = paste0("mz_", 1:100),
+  mz = seq(100, 1000, length.out = 100),
+  ms2 = FALSE
+)
+
+# Create expression_data
+expression_data <- matrix(
+  rnorm(100 * 1000),
+  nrow = 100,
+  ncol = 1000
+)
+rownames(expression_data) <- variable_info$variable_id
+colnames(expression_data) <- sample_info$sample_id
+
+object <- create_msi_dataset(
+  expression_data = expression_data,
+  sample_info = sample_info,
+  variable_info = variable_info
+)
 }
 }
 \author{

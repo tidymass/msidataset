@@ -2,10 +2,16 @@
 % Please edit documentation in R/all_generics.R
 \name{process_info}
 \alias{process_info}
-\title{Get process information}
+\title{process_info}
 \usage{
-process_info(object, ...)
+process_info(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+list
 }
 \description{
-Get process information
+Get processing information
 }

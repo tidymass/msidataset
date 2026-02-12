@@ -6,29 +6,34 @@
 \title{S4 Class Representing a msi_dataset}
 \description{
 The \code{msi_dataset} class is designed to hold various types of data
-related to mass spectrometry experiments, including expression data,
-MS2 data, annotation tables, and other related information.
+related to mass spectrometry imaging experiments. This version has been
+restructured to match the massdataset structure for better compatibility.
+
+Key changes from original structure:
+\itemize{
+\item pixel_info has been merged into sample_info (pixels are treated as samples)
+\item pixel_info_note has been removed (notes are in sample_info_note)
+\item This allows direct use of massdataset functions with minimal code changes
+}
 }
 \section{Slots}{
 
 \describe{
-\item{\code{expression_data}}{A data.frame containing the expression data.}
+\item{\code{expression_data}}{A data.frame or matrix containing the expression data (variables × samples/pixels).}
 
-\item{\code{ms2_data}}{A list containing MS2 data.}
+\item{\code{ms2_data}}{A list containing MS2 spectra data.}
 
 \item{\code{annotation_table}}{A data.frame containing annotation information.}
 
-\item{\code{pixel_info}}{A data.frame containing pixel information.}
+\item{\code{sample_info}}{A data.frame containing sample/pixel information with required columns:
+sample_id (pixel_id), x, y, z, and optional section_id, resolution, matrix, etc.}
 
-\item{\code{sample_info}}{A data.frame containing sample information.}
+\item{\code{variable_info}}{A data.frame containing variable information with required column:
+variable_id, and typically mz, ms2 (logical).}
 
-\item{\code{variable_info}}{A data.frame containing variable information.}
+\item{\code{sample_info_note}}{A data.frame containing notes about the sample_info columns.}
 
-\item{\code{sample_info_note}}{A data.frame containing notes about the sample information.}
-
-\item{\code{pixel_info_note}}{A data.frame containing notes about the pixel information.}
-
-\item{\code{variable_info_note}}{A data.frame containing notes about the variable information.}
+\item{\code{variable_info_note}}{A data.frame containing notes about the variable_info columns.}
 
 \item{\code{process_info}}{A list containing information about the data processing steps.}
 
@@ -43,18 +48,24 @@ MS2 data, annotation tables, and other related information.
 \dontrun{
 # Create a new msi_dataset object
 new_data <- new("msi_dataset", 
-                expression_data = data.frame(),
+                expression_data = matrix(0, nrow = 100, ncol = 1000),
                 ms2_data = list(),
                 annotation_table = data.frame(),
-                sample_info = data.frame(),
-                pixel_info = data.frame(),
-                variable_info = data.frame(),
+                sample_info = data.frame(
+                  sample_id = paste0("pixel_", 1:1000),
+                  x = rep(1:40, 25),
+                  y = rep(1:25, each = 40),
+                  z = 1
+                ),
+                variable_info = data.frame(
+                  variable_id = paste0("var_", 1:100),
+                  mz = seq(100, 1000, length.out = 100)
+                ),
                 sample_info_note = data.frame(),
-                pixel_info_note = data.frame(),
                 variable_info_note = data.frame(),
                 process_info = list(),
                 other_files = list(),
-                version = "0.1.0",
+                version = "0.2.0",
                 activated = "expression_data")
 }
 

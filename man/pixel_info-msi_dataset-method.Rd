@@ -2,7 +2,7 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{pixel_info,msi_dataset-method}
 \alias{pixel_info,msi_dataset-method}
-\title{Get pixel information}
+\title{Get pixel information (backward compatibility)}
 \usage{
 \S4method{pixel_info}{msi_dataset}(object)
 }
@@ -13,5 +13,6 @@
 data.frame
 }
 \description{
-Get pixel information
+Returns sample_info for backward compatibility.
+In the new structure, pixel information is stored in sample_info.
 }

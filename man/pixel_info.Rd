@@ -2,10 +2,16 @@
 % Please edit documentation in R/all_generics.R
 \name{pixel_info}
 \alias{pixel_info}
-\title{Get pixel information}
+\title{pixel_info}
 \usage{
-pixel_info(object, ...)
+pixel_info(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+data.frame
 }
 \description{
-Get pixel information
+Get pixel information (backward compatibility - returns sample_info)
 }

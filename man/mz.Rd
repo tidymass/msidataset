@@ -2,9 +2,15 @@
 % Please edit documentation in R/all_generics.R
 \name{mz}
 \alias{mz}
-\title{Get m/z values}
+\title{mz}
 \usage{
-mz(object, ...)
+mz(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+Numeric vector
 }
 \description{
 Get m/z values

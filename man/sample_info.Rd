@@ -2,10 +2,16 @@
 % Please edit documentation in R/all_generics.R
 \name{sample_info}
 \alias{sample_info}
-\title{Get sample information}
+\title{sample_info}
 \usage{
-sample_info(object, ...)
+sample_info(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+data.frame
 }
 \description{
-Get sample information
+Get sample information (contains pixel spatial data)
 }

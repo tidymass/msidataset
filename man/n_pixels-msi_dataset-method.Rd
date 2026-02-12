@@ -2,7 +2,7 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{n_pixels,msi_dataset-method}
 \alias{n_pixels,msi_dataset-method}
-\title{Get number of pixels from msi_dataset}
+\title{Get number of pixels from msi_dataset (alias for n_samples)}
 \usage{
 \S4method{n_pixels}{msi_dataset}(object)
 }
@@ -13,5 +13,5 @@
 Integer number of pixels
 }
 \description{
-Get number of pixels from msi_dataset
+Get number of pixels from msi_dataset (alias for n_samples)
 }

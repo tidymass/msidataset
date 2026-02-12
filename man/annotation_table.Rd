@@ -2,9 +2,15 @@
 % Please edit documentation in R/all_generics.R
 \name{annotation_table}
 \alias{annotation_table}
-\title{Get annotation table}
+\title{annotation_table}
 \usage{
-annotation_table(object, ...)
+annotation_table(object)
+}
+\arguments{
+\item{object}{An msi_dataset object}
+}
+\value{
+data.frame
 }
 \description{
 Get annotation table
