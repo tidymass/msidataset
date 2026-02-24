@@ -7,10 +7,10 @@
 \S4method{get_variable_id}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Character vector of variable IDs
+Character vector.
 }
 \description{
 Get variable IDs

@@ -2,18 +2,18 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{get_section_pixels,msi_dataset,character-method}
 \alias{get_section_pixels,msi_dataset,character-method}
-\title{Get pixels for a specific section}
+\title{Get pixels for a specific tissue section}
 \usage{
 \S4method{get_section_pixels}{msi_dataset,character}(object, section_id)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 
-\item{section_id}{Section identifier}
+\item{section_id}{Character scalar — the desired section identifier.}
 }
 \value{
-data.frame of sample_info for specified section
+A \code{data.frame} subset of \code{sample_info}.
 }
 \description{
-Get pixels for a specific section
+Get pixels for a specific tissue section
 }

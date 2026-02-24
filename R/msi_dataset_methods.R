@@ -1,372 +1,345 @@
-#' Show method for msi_dataset
+# ============================================================================
+# Core S4 Methods for msi_dataset (show, [, dim, dimnames, update)
+# Author: Xiaoyu Xu <XIAOYU021@e.ntu.edu.sg>
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# show()
+# ---------------------------------------------------------------------------
+
+#' Display a msi_dataset object
 #'
 #' @description
-#' Display method for msi_dataset objects. Shows a summary of the dataset
-#' including dimensions, sample information, variable information, and 
-#' processing history. This version is compatible with massdataset structure.
+#' Prints a formatted summary of the object including dimensions, spatial
+#' extent, section information, and processing history.
 #'
-#' @param object A msi_dataset object
-#' 
-#' @return Invisibly returns the object
-#' 
+#' @param object A \code{msi_dataset} object.
+#' @return Invisibly returns the object.
+#'
 #' @docType methods
 #' @name show,msi_dataset-method
 #' @rdname show-methods
 #' @aliases show,msi_dataset-method
-#'
 #' @export
+
 setMethod(
-  f = "show",
-  signature = "msi_dataset",
+  f          = "show",
+  signature  = "msi_dataset",
   definition = function(object) {
-    ###check again
-    check_result = check_msi_dataset_class(object)
-    
+
+    ## ---- re-validate ----
+    check_result <- check_msi_dataset_class(object)
     if (!isTRUE(check_result)) {
-      cat(crayon::red("Validation errors found:\n"))
+      cat(crayon::red("Validation errors:\n"))
       cat(crayon::red(paste(check_result, collapse = "\n"), "\n"))
       cat(crayon::red(
-        "You may have changed the slots. Try to use update_msi_dataset().\n"
+        "Slots may have been manually modified. ",
+        "Try update_msi_dataset().\n"
       ))
     }
-    
-    cat(crayon::yellow(paste(rep("-", 20), collapse = ""), "\n"))
+
+    sep <- paste(rep("-", 20), collapse = "")
+    cat(crayon::yellow(sep, "\n"))
     cat(crayon::green("msidataset version:", object@version, "\n"))
     cat(crayon::yellow("Structure: massdataset-compatible\n"))
-    cat(crayon::yellow(paste(rep("-", 20), collapse = ""), "\n"))
-    
-    # 1. expression_data
-    cat(crayon::green("1. expression_data:"))
-    if (methods::is(object@expression_data, "DelayedArray")) {
-      cat(
-        "[",
-        nrow(object@expression_data),
-        "x",
-        ncol(object@expression_data),
-        "DelayedArray]\n"
-      )
+    cat(crayon::yellow("Activated slot:", object@activated, "\n"))
+    cat(crayon::yellow(sep, "\n"))
+
+    ## 1. expression_data
+    cat(crayon::green("1. expression_data: "))
+    data_type <- if (methods::is(object@expression_data, "DelayedArray")) {
+      "DelayedArray"
     } else if (is.matrix(object@expression_data)) {
-      cat(
-        "[",
-        nrow(object@expression_data),
-        "x",
-        ncol(object@expression_data),
-        "matrix]\n"
-      )
+      "matrix"
     } else {
-      cat(
-        "[",
-        nrow(object@expression_data),
-        "x",
-        ncol(object@expression_data),
-        "data.frame]\n"
-      )
+      "data.frame"
     }
-    
-    # 2. variable_info
-    cat(crayon::green("2. variable_info:"))
-    cat(
-      "[",
-      nrow(object@variable_info),
-      "x",
-      ncol(object@variable_info),
-      "data.frame]\n"
-    )
-    if (nrow(object@variable_info) <= 5) {
-      variable_id <- object@variable_info$variable_id
-    } else{
-      variable_id <-
-        c(head(object@variable_info$variable_id, 3), "...",
-          tail(object@variable_info$variable_id, 2))
+    cat("[", nrow(object@expression_data), "x",
+        ncol(object@expression_data), data_type, "]\n")
+
+    ## 2. variable_info
+    cat(crayon::green("2. variable_info: "))
+    cat("[", nrow(object@variable_info), "x",
+        ncol(object@variable_info), "data.frame]\n")
+    nv <- nrow(object@variable_info)
+    vid <- if (nv <= 5) {
+      object@variable_info$variable_id
+    } else {
+      c(head(object@variable_info$variable_id, 3), "...",
+        tail(object@variable_info$variable_id, 2))
     }
-    cat(nrow(object@variable_info), "variables:")
-    cat(variable_id)
-    cat("\n")
-    
-    # 3. sample_info (now contains pixel data)
-    cat(crayon::green("3. sample_info:"))
-    cat("[",
-        nrow(object@sample_info),
-        "x",
-        ncol(object@sample_info),
-        "data.frame]\n")
-    if (nrow(object@sample_info) <= 5) {
-      sample_id <- object@sample_info$sample_id
-    } else{
-      sample_id <-
-        c(head(object@sample_info$sample_id, 3), "...",
-          tail(object@sample_info$sample_id, 2))
-    }
-    cat(nrow(object@sample_info), "samples (pixels):")
-    cat(sample_id)
-    cat("\n")
-    
-    # Show spatial extent if available
-    if (all(c("x", "y", "z") %in% colnames(object@sample_info))) {
-      cat("  Spatial extent: x[", 
-          min(object@sample_info$x), "-", max(object@sample_info$x), "], ",
-          "y[", min(object@sample_info$y), "-", max(object@sample_info$y), "], ",
-          "z[", min(object@sample_info$z), "-", max(object@sample_info$z), "]\n",
+    cat(nv, "variables:", paste(vid, collapse = " "), "\n")
+
+    ## m/z range
+    if ("mz" %in% colnames(object@variable_info)) {
+      mz_vals <- object@variable_info$mz
+      cat("  m/z range: [",
+          round(min(mz_vals), 4), " - ", round(max(mz_vals), 4), "]\n",
           sep = "")
     }
-    
-    # Show sections if available
+
+    ## 3. sample_info
+    cat(crayon::green("3. sample_info: "))
+    cat("[", nrow(object@sample_info), "x",
+        ncol(object@sample_info), "data.frame]\n")
+    np <- nrow(object@sample_info)
+    sid <- if (np <= 5) {
+      object@sample_info$sample_id
+    } else {
+      c(head(object@sample_info$sample_id, 3), "...",
+        tail(object@sample_info$sample_id, 2))
+    }
+    cat(np, "pixels:", paste(sid, collapse = " "), "\n")
+
+    ## spatial extent
+    if (all(c("x", "y") %in% colnames(object@sample_info))) {
+      cat("  Spatial extent: x[",
+          min(object@sample_info$x), "-", max(object@sample_info$x), "], ",
+          "y[", min(object@sample_info$y), "-", max(object@sample_info$y), "]",
+          sep = "")
+      if ("z" %in% colnames(object@sample_info)) {
+        cat(", z[",
+            min(object@sample_info$z), "-", max(object@sample_info$z), "]",
+            sep = "")
+      }
+      cat("\n")
+    }
+
+    ## sections
     if ("section_id" %in% colnames(object@sample_info)) {
-      sections <- unique(object@sample_info$section_id)
-      if (length(sections) <= 5) {
-        cat("  Sections:", paste(sections, collapse = ", "), "\n")
+      secs <- unique(object@sample_info$section_id)
+      if (length(secs) <= 5) {
+        cat("  Sections:", paste(secs, collapse = ", "), "\n")
       } else {
-        cat("  Sections:", length(sections), "sections\n")
+        cat("  Sections:", length(secs), "sections\n")
       }
     }
-    
-    # 4. sample_info_note
-    cat(crayon::green("4. sample_info_note:"))
-    cat(
-      "[",
-      nrow(object@sample_info_note),
-      "x",
-      ncol(object@sample_info_note),
-      "data.frame]\n"
-    )
-    
-    # 5. variable_info_note
-    cat(crayon::green("5. variable_info_note:"))
-    cat(
-      "[",
-      nrow(object@variable_info_note),
-      "x",
-      ncol(object@variable_info_note),
-      "data.frame]\n"
-    )
-    
-    # 6. ms2_data
-    cat(crayon::green("6. ms2_data:"))
+
+    ## 4. sample_info_note
+    cat(crayon::green("4. sample_info_note: "))
+    cat("[", nrow(object@sample_info_note), "x",
+        ncol(object@sample_info_note), "data.frame]\n")
+
+    ## 5. variable_info_note
+    cat(crayon::green("5. variable_info_note: "))
+    cat("[", nrow(object@variable_info_note), "x",
+        ncol(object@variable_info_note), "data.frame]\n")
+
+    ## 6. ms2_data
+    cat(crayon::green("6. ms2_data: "))
     if (length(object@ms2_data) > 0) {
-      cat("[",
-          sum(unlist(lapply(object@ms2_data, function(x) {
-            length(unique(x@variable_id))
-          }))),
-          "variables x",
-          sum(unlist(lapply(object@ms2_data, function(x) {
-            length(unique(x@ms2_spectra))
-          }))),
-          "MS2 spectra]\n")
+      cat("[", length(object@ms2_data), "MS2 spectrum/spectra]\n")
     } else {
       cat("[0 MS2 spectra]\n")
     }
-    
-    cat(crayon::yellow(paste(rep("-", 20), collapse = ""), "\n"))
-    cat(crayon::green("Processing information\n"))
-    if (.hasSlot(object = object, name = "process_info") &
-        length(object@process_info) != 0) {
-      process_info <- object@process_info
-      cat(crayon::green(length(process_info), "processings in total\n"))
-      if (length(process_info) > 5) {
-        cat(crayon::green("Latest 3 processings shown\n"))
-        process_info <- tail(process_info, 3)
+
+    ## 7. process_info
+    cat(crayon::yellow(sep, "\n"))
+    cat(crayon::green("7. Processing information\n"))
+    pi_list <- object@process_info
+    if (.hasSlot(object, "process_info") && length(pi_list) > 0) {
+      cat(crayon::green(length(pi_list), "processing step(s) in total\n"))
+      show_pi <- if (length(pi_list) > 5) {
+        cat(crayon::green("Latest 3 steps shown:\n"))
+        tail(pi_list, 3)
+      } else {
+        pi_list
       }
-      for (idx in seq_along(process_info)) {
-        cat(crayon::green(names(process_info)[idx], paste(rep("-", 10), collapse = ""), "\n"))
-        if (length(process_info[[idx]]) == 1) {
+      for (nm in names(show_pi)) {
+        cat(crayon::green(nm, paste(rep("-", 10), collapse = ""), "\n"))
+        entry <- show_pi[[nm]]
+        if (methods::is(entry, "tidymass_parameter")) {
           data.frame(
-            "Package" = process_info[[idx]]@pacakge_name,
-            "Function used" = process_info[[idx]]@function_name,
-            "Time" = process_info[[idx]]@time
-          ) %>%
-            print()
-        } else{
+            Package       = entry@pacakge_name,
+            `Function`    = entry@function_name,
+            Time          = as.character(entry@time),
+            check.names   = FALSE
+          ) |> print()
+        } else if (is.list(entry)) {
           data.frame(
-            "Package" = process_info[[idx]] %>% lapply(function(x)
-              x@pacakge_name) %>% unlist(),
-            "Function used" = process_info[[idx]] %>% lapply(function(x)
-              x@function_name) %>% unlist(),
-            "Time" = process_info[[idx]] %>% lapply(function(x)
-              as.character(x@time)) %>% unlist()
-          ) %>%
-            print()
+            Package     = vapply(entry, function(x) x@pacakge_name,  character(1)),
+            `Function`  = vapply(entry, function(x) x@function_name, character(1)),
+            Time        = vapply(entry, function(x) as.character(x@time), character(1)),
+            check.names = FALSE
+          ) |> print()
         }
       }
-    } else{
-      cat(crayon::red("No processing information available.\n"))
+    } else {
+      cat(crayon::red("No processing information.\n"))
     }
-    
-    cat(crayon::yellow(paste(rep("-", 20), collapse = ""), "\n"))
-    cat(crayon::blue("Note: This msi_dataset has massdataset-compatible structure.\n"))
-    cat(crayon::blue("Pixels are stored as 'samples' in sample_info.\n"))
+
+    cat(crayon::yellow(sep, "\n"))
+    invisible(object)
   }
 )
 
 
-#' Extract/subset method for msi_dataset
+# ---------------------------------------------------------------------------
+# [ (subset)
+# ---------------------------------------------------------------------------
+
+#' Subset a msi_dataset object
 #'
 #' @description
-#' Subset a msi_dataset object by variables (rows) and samples/pixels (columns).
+#' Subset by variables (rows) and/or pixels (columns).
 #'
-#' @param x A msi_dataset object
-#' @param i Row indices (variables). Can be numeric, logical, or character vector
-#' @param j Column indices (samples/pixels). Can be numeric, logical, or character vector
-#' @param drop Logical, whether to drop dimensions. Default is FALSE
-#' 
-#' @return A subsetted msi_dataset object
-#' 
+#' @param x A \code{msi_dataset} object.
+#' @param i Row indices (variables): numeric, logical, or character.
+#' @param j Column indices (pixels): numeric, logical, or character.
+#' @param drop Logical; default \code{FALSE}.
+#' @return A subsetted \code{msi_dataset} object.
+#'
 #' @docType methods
 #' @rdname extract-methods
 #' @aliases [,msi_dataset,ANY,ANY,ANY-method
-#' 
 #' @export
+
 setMethod(
   "[",
   signature = "msi_dataset",
   function(x, i, j, drop = FALSE) {
-    
-    # Handle missing indices
-    if (missing(i)) {
-      i <- seq_len(nrow(x@expression_data))
-    }
-    if (missing(j)) {
-      j <- seq_len(ncol(x@expression_data))
-    }
-    
-    # Subset expression_data
-    new_expression_data <- x@expression_data[i, j, drop = drop]
-    
-    # Subset variable_info
-    new_variable_info <- x@variable_info[i, , drop = FALSE]
-    
-    # Subset sample_info (pixels)
-    new_sample_info <- x@sample_info[j, , drop = FALSE]
-    
-    # Update notes if needed
-    new_variable_info_note <- x@variable_info_note
-    new_sample_info_note <- x@sample_info_note
-    
-    # Create new object
-    new_object <- new(
-      Class = "msi_dataset",
-      expression_data = new_expression_data,
-      ms2_data = x@ms2_data,  # Keep all MS2 data for now
-      annotation_table = x@annotation_table,
-      sample_info = new_sample_info,
-      variable_info = new_variable_info,
-      sample_info_note = new_sample_info_note,
-      variable_info_note = new_variable_info_note,
-      process_info = x@process_info,
-      other_files = x@other_files,
-      version = x@version,
-      activated = x@activated
+
+    if (missing(i)) i <- seq_len(nrow(x@expression_data))
+    if (missing(j)) j <- seq_len(ncol(x@expression_data))
+
+    new_expr  <- x@expression_data[i, j, drop = FALSE]
+    new_vinfo <- x@variable_info[i, , drop = FALSE]
+    new_sinfo <- x@sample_info[j, , drop = FALSE]
+
+    ## Rebuild notes if needed (keep existing columns only)
+    new_snote <- x@sample_info_note
+    new_vnote <- x@variable_info_note
+
+    new_obj <- new(
+      Class              = "msi_dataset",
+      expression_data    = as.data.frame(new_expr, check.names = FALSE),
+      ms2_data           = x@ms2_data,
+      annotation_table   = x@annotation_table,
+      sample_info        = new_sinfo,
+      variable_info      = new_vinfo,
+      sample_info_note   = new_snote,
+      variable_info_note = new_vnote,
+      process_info       = x@process_info,
+      other_files        = x@other_files,
+      version            = x@version,
+      activated          = x@activated
     )
-    
-    return(new_object)
+    new_obj
   }
 )
 
 
-#' Get dimensions of msi_dataset
-#'
-#' @description
-#' Returns the dimensions of the expression data in a msi_dataset object.
-#'
-#' @param x A msi_dataset object
-#' 
-#' @return Integer vector of length 2: c(n_variables, n_samples)
-#' 
+# ---------------------------------------------------------------------------
+# dim() and dimnames()
+# ---------------------------------------------------------------------------
+
+#' Dimensions of a msi_dataset
+#' @param x A \code{msi_dataset} object.
+#' @return Integer vector \code{c(n_variables, n_pixels)}.
 #' @docType methods
 #' @rdname dim-methods
 #' @aliases dim,msi_dataset-method
-#' 
 #' @export
-setMethod(
-  "dim",
-  "msi_dataset",
-  function(x) {
-    c(nrow(x@expression_data), ncol(x@expression_data))
-  }
-)
+setMethod("dim", "msi_dataset", function(x) {
+  c(nrow(x@expression_data), ncol(x@expression_data))
+})
 
-
-#' Get dimension names of msi_dataset
-#'
-#' @description
-#' Returns the row and column names of the expression data.
-#'
-#' @param x A msi_dataset object
-#' 
-#' @return List with two elements: variable IDs (rows) and sample IDs (columns)
-#' 
+#' Dimension names of a msi_dataset
+#' @param x A \code{msi_dataset} object.
+#' @return A list: variable IDs (rows) and pixel IDs (columns).
 #' @docType methods
 #' @rdname dimnames-methods
 #' @aliases dimnames,msi_dataset-method
-#' 
 #' @export
-setMethod(
-  "dimnames",
-  "msi_dataset",
-  function(x) {
-    list(
-      rownames(x@expression_data),
-      colnames(x@expression_data)
-    )
-  }
-)
+setMethod("dimnames", "msi_dataset", function(x) {
+  list(rownames(x@expression_data), colnames(x@expression_data))
+})
 
 
-#' Update msi_dataset object
+# ---------------------------------------------------------------------------
+# update_msi_dataset()
+# ---------------------------------------------------------------------------
+
+#' Update a msi_dataset Object
 #'
 #' @description
-#' Updates an msi_dataset object to ensure consistency between slots.
-#' Useful after manual modifications.
+#' Re-synchronises \code{expression_data} dimnames with the id columns in
+#' \code{variable_info} / \code{sample_info} and regenerates note tables
+#' when they are missing or have the wrong number of rows.
 #'
-#' @param object A msi_dataset object
-#' @return Updated msi_dataset object
+#' @param object A \code{msi_dataset} object.
+#' @return The updated \code{msi_dataset} object (invisibly).
 #' @export
+
 update_msi_dataset <- function(object) {
-  
-  # Ensure expression_data dimnames match info tables
-  if (!is.null(object@variable_info) && nrow(object@variable_info) > 0) {
+
+  ## sync dimnames
+  if (nrow(object@variable_info) > 0)
     rownames(object@expression_data) <- object@variable_info$variable_id
-  }
-  
-  if (!is.null(object@sample_info) && nrow(object@sample_info) > 0) {
+  if (nrow(object@sample_info) > 0)
     colnames(object@expression_data) <- object@sample_info$sample_id
-  }
-  
-  # Update info_notes if they don't match
-  if (nrow(object@sample_info_note) == 0 || 
+
+  ## rebuild notes when stale
+  if (nrow(object@sample_info_note) != ncol(object@sample_info) ||
       !all(object@sample_info_note$name == colnames(object@sample_info))) {
     object@sample_info_note <- data.frame(
-      name = colnames(object@sample_info),
+      name    = colnames(object@sample_info),
       meaning = colnames(object@sample_info),
-      check.names = FALSE
+      check.names = FALSE, stringsAsFactors = FALSE
     )
   }
-  
-  if (nrow(object@variable_info_note) == 0 || 
+
+  if (nrow(object@variable_info_note) != ncol(object@variable_info) ||
       !all(object@variable_info_note$name == colnames(object@variable_info))) {
     object@variable_info_note <- data.frame(
-      name = colnames(object@variable_info),
+      name    = colnames(object@variable_info),
       meaning = colnames(object@variable_info),
-      check.names = FALSE
+      check.names = FALSE, stringsAsFactors = FALSE
     )
   }
-  
-  # Add update to process_info
+
+  ## record
   parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+    Class         = "tidymass_parameter",
+    pacakge_name  = "msidataset",
     function_name = "update_msi_dataset()",
-    parameter = list("no" = "no"),
-    time = Sys.time()
+    parameter     = list("no" = "no"),
+    time          = Sys.time()
   )
-  
   object@process_info$update_msi_dataset <- parameter
-  
-  # Validate
+
+  ## validate
   check_result <- check_msi_dataset_class(object)
-  if (!isTRUE(check_result)) {
-    warning("Validation errors after update:\n", 
+  if (!isTRUE(check_result))
+    warning("Validation errors after update:\n",
             paste(check_result, collapse = "\n"))
-  }
-  
-  return(object)
+
+  invisible(object)
+}
+
+
+# ---------------------------------------------------------------------------
+# activate() — switch the "active" slot (mirrors massdataset)
+# ---------------------------------------------------------------------------
+
+#' Activate a slot for default operations
+#'
+#' @description
+#' Sets \code{object@activated} to one of \code{"expression_data"},
+#' \code{"sample_info"}, or \code{"variable_info"}, controlling the
+#' default target of \code{dplyr::filter()}, \code{mutate()}, etc.
+#'
+#' @param object A \code{msi_dataset} object.
+#' @param slot_name One of \code{"expression_data"}, \code{"sample_info"},
+#'   \code{"variable_info"}.
+#' @return The modified \code{msi_dataset} object (invisibly).
+#' @export
+
+activate_msi_dataset <- function(object,
+                                  slot_name = c("expression_data",
+                                                "sample_info",
+                                                "variable_info")) {
+  slot_name <- match.arg(slot_name)
+  object@activated <- slot_name
+  invisible(object)
 }

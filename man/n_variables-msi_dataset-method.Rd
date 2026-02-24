@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{n_variables,msi_dataset-method}
 \alias{n_variables,msi_dataset-method}
-\title{Get number of variables from msi_dataset}
+\title{Number of variables in a msi_dataset}
 \usage{
 \S4method{n_variables}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Integer number of variables
+Integer.
 }
 \description{
-Get number of variables from msi_dataset
+Number of variables in a msi_dataset
 }

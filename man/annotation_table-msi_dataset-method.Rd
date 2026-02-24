@@ -7,10 +7,10 @@
 \S4method{annotation_table}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-data.frame
+A \code{data.frame}.
 }
 \description{
 Get annotation table

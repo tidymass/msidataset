@@ -3,16 +3,16 @@
 \docType{methods}
 \name{dim,msi_dataset-method}
 \alias{dim,msi_dataset-method}
-\title{Get dimensions of msi_dataset}
+\title{Dimensions of a msi_dataset}
 \usage{
 \S4method{dim}{msi_dataset}(x)
 }
 \arguments{
-\item{x}{A msi_dataset object}
+\item{x}{A \code{msi_dataset} object.}
 }
 \value{
-Integer vector of length 2: c(n_variables, n_samples)
+Integer vector \code{c(n_variables, n_pixels)}.
 }
 \description{
-Returns the dimensions of the expression data in a msi_dataset object.
+Dimensions of a msi_dataset
 }

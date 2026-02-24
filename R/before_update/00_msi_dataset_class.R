@@ -44,7 +44,7 @@ check_msi_dataset_class <-
       errors <- c(errors, msg)
     }
     
-    ##check sample_info format (now for pixels)
+    ##check sample_info format (also for pixels)
     if (!"sample_id" %in% colnames(object@sample_info)) {
       msg <- "sample_info must have sample_id (pixel_id)."
       errors <- c(errors, msg)
@@ -66,9 +66,35 @@ check_msi_dataset_class <-
       errors <- c(errors, msg)
     }
     
-    if (!"z" %in% colnames(object@sample_info)) {
-      msg <- "sample_info must have z (tissue slice depth / relative to a reference slice)."
-      errors <- c(errors, msg)
+    # z is optional; if present it should be numeric and non-missing
+    if ("x" %in% colnames(object@sample_info)) {
+      if (!is.numeric(object@sample_info$x)) {
+        msg <- "sample_info$x must be numeric."
+        errors <- c(errors, msg)
+      } else if (any(is.na(object@sample_info$x))) {
+        msg <- "sample_info$x cannot contain NA."
+        errors <- c(errors, msg)
+      }
+    }
+    
+    if ("y" %in% colnames(object@sample_info)) {
+      if (!is.numeric(object@sample_info$y)) {
+        msg <- "sample_info$y must be numeric."
+        errors <- c(errors, msg)
+      } else if (any(is.na(object@sample_info$y))) {
+        msg <- "sample_info$y cannot contain NA."
+        errors <- c(errors, msg)
+      }
+    }
+    
+    if ("z" %in% colnames(object@sample_info)) {
+      if (!is.numeric(object@sample_info$z)) {
+        msg <- "sample_info$z must be numeric when provided."
+        errors <- c(errors, msg)
+      } else if (any(is.na(object@sample_info$z))) {
+        msg <- "sample_info$z cannot contain NA when provided."
+        errors <- c(errors, msg)
+      }
     }
     
     ##check sample_info_note format
@@ -175,7 +201,7 @@ check_msi_dataset_class <-
 #' @slot ms2_data A list containing MS2 spectra data.
 #' @slot annotation_table A data.frame containing annotation information.
 #' @slot sample_info A data.frame containing sample/pixel information with required columns:
-#'   sample_id (pixel_id), x, y, z, and optional section_id, resolution, matrix, etc.
+#'   sample_id (pixel_id), x, y, and optional z (defaults to 1), section_id, resolution, matrix, etc.
 #' @slot variable_info A data.frame containing variable information with required column:
 #'   variable_id, and typically mz, ms2 (logical).
 #' @slot sample_info_note A data.frame containing notes about the sample_info columns.
@@ -248,7 +274,7 @@ setClass(
 #' \email{XIAOYU021@@e.ntu.edu.sg}
 #' @param expression_data Expression data matrix/data.frame (variables × pixels).
 #' @param sample_info Sample/pixel information data.frame with required columns:
-#'   sample_id (pixel ID), x, y, z. Optional: section_id, resolution, matrix.
+#'   sample_id (pixel ID), x, y. Optional: z (defaults to 1), section_id, resolution, matrix.
 #' @param variable_info Variable information data.frame with variable_id, mz columns.
 #' @param sample_info_note Optional. Descriptions for sample_info columns.
 #' @param variable_info_note Optional. Descriptions for variable_info columns.
@@ -297,6 +323,19 @@ create_msi_dataset <-
            sample_info_note,
            variable_info_note) {
     
+    coerce_numeric_no_na <- function(x, name) {
+      if (is.numeric(x)) {
+        if (any(is.na(x))) stop(name, " cannot contain NA.")
+        return(x)
+      }
+      x_chr <- as.character(x)
+      x_num <- suppressWarnings(as.numeric(x_chr))
+      if (any(is.na(x_num))) {
+        stop(name, " must be numeric (or coercible to numeric) and cannot contain NA.")
+      }
+      x_num
+    }
+    
     # ========== Pre-creation validation ==========
     # Check variable_info
     if (!"variable_id" %in% colnames(variable_info)) {
@@ -325,9 +364,15 @@ create_msi_dataset <-
       stop("sample_info must have y (vertical spatial coordinate).")
     }
     
+    # Coerce/validate x, y now (required)
+    sample_info$x <- coerce_numeric_no_na(sample_info$x, "sample_info$x")
+    sample_info$y <- coerce_numeric_no_na(sample_info$y, "sample_info$y")
+    
+    # z is optional; if missing, default to 1
     if (!"z" %in% colnames(sample_info)) {
-      stop("sample_info must have z (tissue slice depth).")
+      sample_info$z <- 1
     }
+    sample_info$z <- coerce_numeric_no_na(sample_info$z, "sample_info$z")
     
     # Check dimensions match
     if (ncol(expression_data) != nrow(sample_info)) {

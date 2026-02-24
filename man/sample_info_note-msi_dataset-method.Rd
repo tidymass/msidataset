@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{sample_info_note,msi_dataset-method}
 \alias{sample_info_note,msi_dataset-method}
-\title{Get sample info note (now contains pixel info notes)}
+\title{Get sample_info_note}
 \usage{
 \S4method{sample_info_note}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-data.frame
+A \code{data.frame}.
 }
 \description{
-Get sample info note (now contains pixel info notes)
+Get sample_info_note
 }

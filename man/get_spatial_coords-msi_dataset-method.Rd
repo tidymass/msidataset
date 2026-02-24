@@ -2,16 +2,17 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{get_spatial_coords,msi_dataset-method}
 \alias{get_spatial_coords,msi_dataset-method}
-\title{Get spatial coordinates from msi_dataset}
+\title{Get spatial coordinates (x, y, z) from a msi_dataset}
 \usage{
 \S4method{get_spatial_coords}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-data.frame with sample_id, x, y, z columns
+A \code{data.frame} with columns \code{sample_id}, \code{x},
+\code{y}, \code{z}.
 }
 \description{
-Get spatial coordinates from msi_dataset
+Get spatial coordinates (x, y, z) from a msi_dataset
 }

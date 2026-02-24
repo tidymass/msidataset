@@ -3,16 +3,16 @@
 \docType{methods}
 \name{dimnames,msi_dataset-method}
 \alias{dimnames,msi_dataset-method}
-\title{Get dimension names of msi_dataset}
+\title{Dimension names of a msi_dataset}
 \usage{
 \S4method{dimnames}{msi_dataset}(x)
 }
 \arguments{
-\item{x}{A msi_dataset object}
+\item{x}{A \code{msi_dataset} object.}
 }
 \value{
-List with two elements: variable IDs (rows) and sample IDs (columns)
+A list: variable IDs (rows) and pixel IDs (columns).
 }
 \description{
-Returns the row and column names of the expression data.
+Dimension names of a msi_dataset
 }

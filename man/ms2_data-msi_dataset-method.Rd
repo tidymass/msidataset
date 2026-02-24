@@ -7,10 +7,10 @@
 \S4method{ms2_data}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-list
+A \code{list}.
 }
 \description{
 Get MS2 data

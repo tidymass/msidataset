@@ -2,47 +2,28 @@
 % Please edit documentation in R/convert_cardinal2msi_dataset.R
 \name{convert_cardinal2msi_dataset}
 \alias{convert_cardinal2msi_dataset}
-\title{Convert Cardinal MSImageSet to msi_dataset}
+\title{Convert Cardinal Object to msi_dataset (Fixed Version)}
 \usage{
 convert_cardinal2msi_dataset(
   cardinal_object,
-  sample_id = "sample_1",
-  section_id = "section_1",
+  sample_name = "sample_1",
+  section_name = "section_1",
   resolution = NA,
-  matrix = NA
+  matrix_name = NA
 )
 }
 \arguments{
-\item{cardinal_object}{A Cardinal MSImageSet or MSImagingExperiment object}
+\item{cardinal_object}{Cardinal 镜像对象}
 
-\item{sample_id}{Optional sample identifier for the dataset}
+\item{sample_name}{样本名称前缀}
 
-\item{section_id}{Optional section identifier}
+\item{section_name}{切片名称}
 
-\item{resolution}{Optional spatial resolution in micrometers}
+\item{resolution}{空间分辨率 (um)}
 
-\item{matrix}{Optional matrix used for ionization (e.g., "DHB", "CHCA")}
-}
-\value{
-An msi_dataset object
+\item{matrix_name}{基质名称}
 }
 \description{
-Converts a Cardinal MSImageSet object to the new msi_dataset structure
-that is compatible with massdataset. Pixels are stored in sample_info.
-}
-\examples{
-\dontrun{
-library(Cardinal)
-# Load Cardinal data
-data <- readMSIData("path/to/imzML")
-
-# Convert to msi_dataset
-msi_obj <- convert_cardinal2msi_dataset(
-  cardinal_object = data,
-  sample_id = "mouse_brain_1",
-  section_id = "section_1",
-  resolution = 50,
-  matrix = "DHB"
-)
-}
+将 Cardinal 对象转换为 msi_dataset。
+修复了 iData 弃用警告和 generate_variable_id 缺失问题。
 }

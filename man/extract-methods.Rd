@@ -3,22 +3,22 @@
 \docType{methods}
 \name{[,msi_dataset,ANY,ANY,ANY-method}
 \alias{[,msi_dataset,ANY,ANY,ANY-method}
-\title{Extract/subset method for msi_dataset}
+\title{Subset a msi_dataset object}
 \usage{
 \S4method{[}{msi_dataset,ANY,ANY,ANY}(x, i, j, drop = FALSE)
 }
 \arguments{
-\item{x}{A msi_dataset object}
+\item{x}{A \code{msi_dataset} object.}
 
-\item{i}{Row indices (variables). Can be numeric, logical, or character vector}
+\item{i}{Row indices (variables): numeric, logical, or character.}
 
-\item{j}{Column indices (samples/pixels). Can be numeric, logical, or character vector}
+\item{j}{Column indices (pixels): numeric, logical, or character.}
 
-\item{drop}{Logical, whether to drop dimensions. Default is FALSE}
+\item{drop}{Logical; default \code{FALSE}.}
 }
 \value{
-A subsetted msi_dataset object
+A subsetted \code{msi_dataset} object.
 }
 \description{
-Subset a msi_dataset object by variables (rows) and samples/pixels (columns).
+Subset by variables (rows) and/or pixels (columns).
 }

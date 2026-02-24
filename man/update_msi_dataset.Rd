@@ -2,17 +2,18 @@
 % Please edit documentation in R/msi_dataset_methods.R
 \name{update_msi_dataset}
 \alias{update_msi_dataset}
-\title{Update msi_dataset object}
+\title{Update a msi_dataset Object}
 \usage{
 update_msi_dataset(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Updated msi_dataset object
+The updated \code{msi_dataset} object (invisibly).
 }
 \description{
-Updates an msi_dataset object to ensure consistency between slots.
-Useful after manual modifications.
+Re-synchronises \code{expression_data} dimnames with the id columns in
+\code{variable_info} / \code{sample_info} and regenerates note tables
+when they are missing or have the wrong number of rows.
 }

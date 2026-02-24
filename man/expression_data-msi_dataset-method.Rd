@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{expression_data,msi_dataset-method}
 \alias{expression_data,msi_dataset-method}
-\title{Get expression data}
+\title{Get expression data from a msi_dataset object}
 \usage{
 \S4method{expression_data}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-matrix, data.frame, or DelayedArray
+A \code{data.frame} or \code{matrix}.
 }
 \description{
-Get expression data
+Get expression data from a msi_dataset object
 }

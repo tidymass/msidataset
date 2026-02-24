@@ -2,17 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{pixel_info_note,msi_dataset-method}
 \alias{pixel_info_note,msi_dataset-method}
-\title{Get pixel info note (backward compatibility)}
+\title{Get pixel_info_note (backward compatibility — returns sample_info_note)}
 \usage{
 \S4method{pixel_info_note}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-data.frame
+A \code{data.frame}.
 }
 \description{
-Returns sample_info_note for backward compatibility.
-In the new structure, pixel information notes are in sample_info_note.
+Get pixel_info_note (backward compatibility — returns sample_info_note)
 }

@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{get_section_ids,msi_dataset-method}
 \alias{get_section_ids,msi_dataset-method}
-\title{Get unique section IDs}
+\title{Get unique section identifiers}
 \usage{
 \S4method{get_section_ids}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Character vector of section IDs
+Character vector of section IDs, or \code{NULL}.
 }
 \description{
-Get unique section IDs
+Get unique section identifiers
 }

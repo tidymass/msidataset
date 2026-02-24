@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{get_sample_id,msi_dataset-method}
 \alias{get_sample_id,msi_dataset-method}
-\title{Get sample IDs (pixel IDs)}
+\title{Get sample (pixel) IDs}
 \usage{
 \S4method{get_sample_id}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Character vector of sample IDs
+Character vector.
 }
 \description{
-Get sample IDs (pixel IDs)
+Get sample (pixel) IDs
 }

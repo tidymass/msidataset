@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{mz,msi_dataset-method}
 \alias{mz,msi_dataset-method}
-\title{Get m/z values from msi_dataset}
+\title{Extract m/z values from a msi_dataset}
 \usage{
 \S4method{mz}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Numeric vector of m/z values
+Numeric vector of m/z values, or \code{NULL} with a warning.
 }
 \description{
-Get m/z values from msi_dataset
+Extract m/z values from a msi_dataset
 }

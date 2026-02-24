@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{variable_info_note,msi_dataset-method}
 \alias{variable_info_note,msi_dataset-method}
-\title{Get variable info note}
+\title{Get variable_info_note}
 \usage{
 \S4method{variable_info_note}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-data.frame
+A \code{data.frame}.
 }
 \description{
-Get variable info note
+Get variable_info_note
 }

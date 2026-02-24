@@ -2,16 +2,16 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{n_samples,msi_dataset-method}
 \alias{n_samples,msi_dataset-method}
-\title{Get number of samples/pixels from msi_dataset}
+\title{Number of samples/pixels in a msi_dataset}
 \usage{
 \S4method{n_samples}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Integer number of samples (pixels)
+Integer.
 }
 \description{
-Get number of samples/pixels from msi_dataset
+Number of samples/pixels in a msi_dataset
 }

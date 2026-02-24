@@ -3,18 +3,17 @@
 \docType{methods}
 \name{show,msi_dataset-method}
 \alias{show,msi_dataset-method}
-\title{Show method for msi_dataset}
+\title{Display a msi_dataset object}
 \usage{
 \S4method{show}{msi_dataset}(object)
 }
 \arguments{
-\item{object}{A msi_dataset object}
+\item{object}{A \code{msi_dataset} object.}
 }
 \value{
-Invisibly returns the object
+Invisibly returns the object.
 }
 \description{
-Display method for msi_dataset objects. Shows a summary of the dataset
-including dimensions, sample information, variable information, and
-processing history. This version is compatible with massdataset structure.
+Prints a formatted summary of the object including dimensions, spatial
+extent, section information, and processing history.
 }
