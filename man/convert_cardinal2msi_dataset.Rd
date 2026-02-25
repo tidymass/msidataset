@@ -2,7 +2,7 @@
 % Please edit documentation in R/convert_cardinal2msi_dataset.R
 \name{convert_cardinal2msi_dataset}
 \alias{convert_cardinal2msi_dataset}
-\title{Convert Cardinal Object to msi_dataset (Fixed Version)}
+\title{Convert Cardinal Object to msi_dataset}
 \usage{
 convert_cardinal2msi_dataset(
   cardinal_object,
@@ -13,17 +13,16 @@ convert_cardinal2msi_dataset(
 )
 }
 \arguments{
-\item{cardinal_object}{Cardinal 镜像对象}
+\item{cardinal_object}{Cardinal}
 
-\item{sample_name}{样本名称前缀}
+\item{sample_name}{sample name}
 
-\item{section_name}{切片名称}
+\item{section_name}{section name}
 
-\item{resolution}{空间分辨率 (um)}
+\item{resolution}{um}
 
-\item{matrix_name}{基质名称}
+\item{matrix_name}{CHCA|DHB|NEDC}
 }
 \description{
-将 Cardinal 对象转换为 msi_dataset。
-修复了 iData 弃用警告和 generate_variable_id 缺失问题。
+Convert Cardinal object to msi_dataset
 }

@@ -78,7 +78,6 @@ msidataset_attach <- function() {
     )
   )
   
-  # 两列排版（对齐 massdataset）
   if (length(packages) %% 2 == 1) {
     packages <- append(packages, "")
   }
