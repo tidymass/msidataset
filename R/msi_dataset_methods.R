@@ -26,7 +26,7 @@ setMethod(
   f          = "show",
   signature  = "msi_dataset",
   definition = function(object) {
-
+    
     ## ---- re-validate ----
     check_result <- check_msi_dataset_class(object)
     if (!isTRUE(check_result)) {
@@ -37,14 +37,14 @@ setMethod(
         "Try update_msi_dataset().\n"
       ))
     }
-
+    
     sep <- paste(rep("-", 20), collapse = "")
     cat(crayon::yellow(sep, "\n"))
     cat(crayon::green("msidataset version:", object@version, "\n"))
     cat(crayon::yellow("Structure: massdataset-compatible\n"))
     cat(crayon::yellow("Activated slot:", object@activated, "\n"))
     cat(crayon::yellow(sep, "\n"))
-
+    
     ## 1. expression_data
     cat(crayon::green("1. expression_data: "))
     data_type <- if (methods::is(object@expression_data, "DelayedArray")) {
@@ -56,7 +56,7 @@ setMethod(
     }
     cat("[", nrow(object@expression_data), "x",
         ncol(object@expression_data), data_type, "]\n")
-
+    
     ## 2. variable_info
     cat(crayon::green("2. variable_info: "))
     cat("[", nrow(object@variable_info), "x",
@@ -69,7 +69,7 @@ setMethod(
         tail(object@variable_info$variable_id, 2))
     }
     cat(nv, "variables:", paste(vid, collapse = " "), "\n")
-
+    
     ## m/z range
     if ("mz" %in% colnames(object@variable_info)) {
       mz_vals <- object@variable_info$mz
@@ -77,20 +77,22 @@ setMethod(
           round(min(mz_vals), 4), " - ", round(max(mz_vals), 4), "]\n",
           sep = "")
     }
-
+    
     ## 3. sample_info
     cat(crayon::green("3. sample_info: "))
     cat("[", nrow(object@sample_info), "x",
         ncol(object@sample_info), "data.frame]\n")
     np <- nrow(object@sample_info)
-    sid <- if (np <= 5) {
-      object@sample_info$sample_id
+    
+    # ✓ UPDATED: Show pixel_id instead of sample_id
+    pid <- if (np <= 5) {
+      object@sample_info$pixel_id
     } else {
-      c(head(object@sample_info$sample_id, 3), "...",
-        tail(object@sample_info$sample_id, 2))
+      c(head(object@sample_info$pixel_id, 3), "...",
+        tail(object@sample_info$pixel_id, 2))
     }
-    cat(np, "pixels:", paste(sid, collapse = " "), "\n")
-
+    cat(np, "pixels:", paste(pid, collapse = " "), "\n")
+    
     ## spatial extent
     if (all(c("x", "y") %in% colnames(object@sample_info))) {
       cat("  Spatial extent: x[",
@@ -98,77 +100,41 @@ setMethod(
           "y[", min(object@sample_info$y), "-", max(object@sample_info$y), "]",
           sep = "")
       if ("z" %in% colnames(object@sample_info)) {
-        cat(", z[",
-            min(object@sample_info$z), "-", max(object@sample_info$z), "]",
+        cat(", ",
+            "z[", min(object@sample_info$z), "-", max(object@sample_info$z), "]",
             sep = "")
       }
       cat("\n")
     }
-
-    ## sections
-    if ("section_id" %in% colnames(object@sample_info)) {
-      secs <- unique(object@sample_info$section_id)
-      if (length(secs) <= 5) {
-        cat("  Sections:", paste(secs, collapse = ", "), "\n")
-      } else {
-        cat("  Sections:", length(secs), "sections\n")
-      }
+    
+    ## 4. notes
+    has_sinfo_note <- nrow(object@sample_info_note) > 0
+    has_vinfo_note <- nrow(object@variable_info_note) > 0
+    if (has_sinfo_note | has_vinfo_note) {
+      cat(crayon::green("4. notes: "))
+      note_parts <- c()
+      if (has_sinfo_note) note_parts <- c(note_parts, "sample_info_note")
+      if (has_vinfo_note) note_parts <- c(note_parts, "variable_info_note")
+      cat(paste(note_parts, collapse = ", "), "\n")
     }
-
-    ## 4. sample_info_note
-    cat(crayon::green("4. sample_info_note: "))
-    cat("[", nrow(object@sample_info_note), "x",
-        ncol(object@sample_info_note), "data.frame]\n")
-
-    ## 5. variable_info_note
-    cat(crayon::green("5. variable_info_note: "))
-    cat("[", nrow(object@variable_info_note), "x",
-        ncol(object@variable_info_note), "data.frame]\n")
-
-    ## 6. ms2_data
-    cat(crayon::green("6. ms2_data: "))
-    if (length(object@ms2_data) > 0) {
-      cat("[", length(object@ms2_data), "MS2 spectrum/spectra]\n")
-    } else {
-      cat("[0 MS2 spectra]\n")
-    }
-
-    ## 7. process_info
-    cat(crayon::yellow(sep, "\n"))
-    cat(crayon::green("7. Processing information\n"))
-    pi_list <- object@process_info
-    if (.hasSlot(object, "process_info") && length(pi_list) > 0) {
-      cat(crayon::green(length(pi_list), "processing step(s) in total\n"))
-      show_pi <- if (length(pi_list) > 5) {
-        cat(crayon::green("Latest 3 steps shown:\n"))
-        tail(pi_list, 3)
-      } else {
-        pi_list
-      }
-      for (nm in names(show_pi)) {
-        cat(crayon::green(nm, paste(rep("-", 10), collapse = ""), "\n"))
-        entry <- show_pi[[nm]]
-        if (methods::is(entry, "tidymass_parameter")) {
-          data.frame(
-            Package       = entry@pacakge_name,
-            `Function`    = entry@function_name,
-            Time          = as.character(entry@time),
-            check.names   = FALSE
-          ) |> print()
-        } else if (is.list(entry)) {
-          data.frame(
-            Package     = vapply(entry, function(x) x@pacakge_name,  character(1)),
-            `Function`  = vapply(entry, function(x) x@function_name, character(1)),
-            Time        = vapply(entry, function(x) as.character(x@time), character(1)),
-            check.names = FALSE
-          ) |> print()
+    
+    ## 5. processing history
+    if (length(object@process_info) > 0) {
+      cat(crayon::green("5. process_info: "))
+      cat(length(object@process_info), "steps\n")
+      # Show last 3 steps
+      steps_to_show <- tail(names(object@process_info), 3)
+      for (step_name in steps_to_show) {
+        param <- object@process_info[[step_name]]
+        func_name <- if (methods::is(param, "tidymass_parameter")) {
+          param@function_name
+        } else {
+          "unknown"
         }
+        cat("  -", func_name, "\n")
       }
-    } else {
-      cat(crayon::red("No processing information.\n"))
     }
-
-    cat(crayon::yellow(sep, "\n"))
+    
     invisible(object)
   }
 )

@@ -9,7 +9,7 @@
 \arguments{
 \item{object}{A \code{msi_dataset} object.}
 
-\item{value}{A \code{data.frame}; must contain \code{sample_id}, \code{x},
+\item{value}{A \code{data.frame}; must contain \code{pixel_id}, \code{x},
 \code{y}.}
 }
 \value{

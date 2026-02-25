@@ -2,7 +2,7 @@
 % Please edit documentation in R/filter_supplementary.R
 \name{filter_msi_dataset_supplementary}
 \alias{filter_msi_dataset_supplementary}
-\title{Enhanced filter_msi_dataset with Supplementary Filter Types}
+\title{Extended filter_msi_dataset with Supplementary Filter Types}
 \usage{
 filter_msi_dataset_supplementary(
   object,
@@ -24,9 +24,9 @@ filter_msi_dataset_supplementary(
 Filtered msi_dataset object
 }
 \description{
-Extended version of filter_msi_dataset that supports two new filter types:
+Extended version of filter_msi_dataset that supports two supplementary filter types:
 \itemize{
-\item "high_frequency": Filter features present in > 80\% of pixels
+\item "high_frequency_count": Filter features by minimum non-zero pixel count
 \item "zero_heavy": Filter out features with > 60\% zero values
 }
 }

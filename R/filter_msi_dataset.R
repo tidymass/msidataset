@@ -19,10 +19,10 @@
 #'                           filter_type = "spatial",
 #'                           x_min = 2, x_max = 8, y_min = 1, y_max = 5)
 #' 
-#' # Filter variables by frequency
+#' # Filter variables by m/z range
 #' obj <- filter_msi_dataset(obj, target = "variable_info",
-#'                           filter_type = "frequency",
-#'                           freq_threshold = 0.2)
+#'                           filter_type = "mz_range",
+#'                           mz_min = 100, mz_max = 1000)
 #' }
 
 filter_msi_dataset <- function(object,
@@ -165,7 +165,7 @@ filter_spatial <- function(object, args) {
     }
   }
   
-  keep_ids <- object@sample_info$sample_id[keep_idx]
+  keep_ids <- object@sample_info$pixel_id[keep_idx]
   
   cat(sprintf("  Spatial bounds: x[%.1f-%.1f], y[%.1f-%.1f]\n",
               x_min, x_max, y_min, y_max))
@@ -222,7 +222,7 @@ filter_by_section <- function(object, args) {
   }
   
   keep_idx <- object@sample_info$section_id %in% unlist(section_ids)
-  keep_ids <- object@sample_info$sample_id[keep_idx]
+  keep_ids <- object@sample_info$pixel_id[keep_idx]
   
   cat(sprintf("  Sections: %s\n", paste(unlist(section_ids), collapse = ", ")))
   cat(sprintf("  Pixels remaining: %d / %d (%.1f%%)\n",
@@ -269,7 +269,7 @@ filter_by_run <- function(object, args) {
   }
   
   keep_idx <- object@sample_info$run %in% run_ids
-  keep_ids <- object@sample_info$sample_id[keep_idx]
+  keep_ids <- object@sample_info$pixel_id[keep_idx]
   
   cat(sprintf("  Runs: %s\n", paste(run_ids, collapse = ", ")))
   cat(sprintf("  Pixels remaining: %d / %d (%.1f%%)\n",
@@ -318,7 +318,7 @@ filter_by_intensity <- function(object, args) {
   }
   
   keep_idx <- intensities >= intensity_threshold
-  keep_ids <- object@sample_info$sample_id[keep_idx]
+  keep_ids <- object@sample_info$pixel_id[keep_idx]
   
   cat(sprintf("  Intensity type: %s\n", intensity_type))
   cat(sprintf("  Threshold: >= %.2f\n", intensity_threshold))
@@ -412,7 +412,7 @@ filter_by_custom_function <- function(object, args) {
     filter_func(object@expression_data[, i])
   })
   
-  keep_ids <- object@sample_info$sample_id[keep_idx]
+  keep_ids <- object@sample_info$pixel_id[keep_idx]
   
   cat(sprintf("  Custom function applied\n"))
   cat(sprintf("  Pixels remaining: %d / %d (%.1f%%)\n",
@@ -450,11 +450,11 @@ filter_by_custom_function <- function(object, args) {
 #' @description
 #' Provides multiple filtering strategies for variables/m/z features:
 #' - "mz_range": Filter by m/z range
-#' - "frequency": Filter by frequency (proportion of pixels)
 #' - "count": Filter by count (number of pixels)
 #' - "intensity": Filter by feature intensity (mean, median)
-#' - "combined": Apply multiple filters in sequence
 #' - "custom": Apply custom filter function
+#'
+#' Note: "frequency" filtering has been removed as freq column is no longer in variable_info
 #'
 #' @keywords internal
 
@@ -475,15 +475,7 @@ filter_variables_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 2: Frequency filtering
-         # ────────────────────────────────────────────────────────────────────
-         "frequency" = {
-           cat("Applying frequency filtering...\n")
-           object <- filter_by_frequency(object, args = args)
-         },
-         
-         # ────────────────────────────────────────────────────────────────────
-         # Type 3: Count filtering
+         # Type 2: Count filtering
          # ────────────────────────────────────────────────────────────────────
          "count" = {
            cat("Applying count filtering...\n")
@@ -491,7 +483,7 @@ filter_variables_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 4: Intensity-based filtering
+         # Type 3: Intensity-based filtering
          # ────────────────────────────────────────────────────────────────────
          "intensity" = {
            cat("Applying feature intensity filtering...\n")
@@ -499,7 +491,7 @@ filter_variables_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 5: Combined filtering
+         # Type 4: Combined filtering
          # ────────────────────────────────────────────────────────────────────
          "combined" = {
            cat("Applying combined variable filtering...\n")
@@ -507,7 +499,7 @@ filter_variables_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 6: Custom filter function
+         # Type 5: Custom filter function
          # ────────────────────────────────────────────────────────────────────
          "custom" = {
            cat("Applying custom filter function...\n")
@@ -516,7 +508,8 @@ filter_variables_comprehensive <- function(object,
          
          {
            stop(sprintf("Unknown filter_type: '%s'. Available types are:
-                   'mz_range', 'frequency', 'count', 'intensity', 'combined', 'custom'", 
+                   'mz_range', 'count', 'intensity', 'combined', 'custom'
+                   Note: 'frequency' filtering has been removed as freq column is no longer in variable_info", 
                         filter_type))
          }
   )
@@ -567,53 +560,7 @@ filter_mz_range <- function(object, args) {
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Variable Filter 2: Frequency Filtering
-# ────────────────────────────────────────────────────────────────────────────
-
-#' @keywords internal
-filter_by_frequency <- function(object, args) {
-  
-  if (!("freq" %in% colnames(object@variable_info))) {
-    stop("freq column not found in variable_info. 
-         Please ensure variable_info has a 'freq' column.")
-  }
-  
-  freq_min <- args$freq_min %||% 0
-  freq_max <- args$freq_max %||% 1
-  
-  keep_idx <- object@variable_info$freq >= freq_min & 
-    object@variable_info$freq <= freq_max
-  keep_ids <- object@variable_info$variable_id[keep_idx]
-  
-  cat(sprintf("  Frequency range: [%.3f - %.3f]\n", freq_min, freq_max))
-  cat(sprintf("  Variables remaining: %d / %d (%.1f%%)\n",
-              length(keep_ids), nrow(object@variable_info),
-              100 * length(keep_ids) / nrow(object@variable_info)))
-  
-  # Update object
-  new_expr <- object@expression_data[keep_ids, , drop = FALSE]
-  new_vinfo <- object@variable_info[keep_idx, ]
-  
-  object@expression_data <- new_expr
-  object@variable_info <- new_vinfo
-  
-  # Record in process_info
-  process_key <- paste0("filter_freq_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
-    function_name = "filter_msi_dataset(frequency)",
-    parameter = list(freq_min = freq_min, freq_max = freq_max),
-    time = Sys.time()
-  )
-  object@process_info[[process_key]] <- parameter
-  
-  return(object)
-}
-
-
-# ────────────────────────────────────────────────────────────────────────────
-# Variable Filter 3: Count Filtering
+# Variable Filter 2: Count Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -621,7 +568,7 @@ filter_by_count <- function(object, args) {
   
   if (!("count" %in% colnames(object@variable_info))) {
     stop("count column not found in variable_info.
-         Please ensure variable_info has a 'count' column.")
+         If you need to filter by frequency/count, add these columns first.")
   }
   
   count_min <- args$count_min %||% 0
@@ -659,7 +606,7 @@ filter_by_count <- function(object, args) {
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Variable Filter 4: Feature Intensity Filtering
+# Variable Filter 3: Feature Intensity Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -712,7 +659,7 @@ filter_variable_intensity <- function(object, args) {
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Variable Filter 5: Combined Filtering
+# Variable Filter 4: Combined Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -727,23 +674,16 @@ filter_variables_combined <- function(object, args) {
     object <- filter_mz_range(object, args = mz_args)
   }
   
-  # Step 2: Frequency filtering
-  if (!is.null(args$frequency)) {
-    cat("  Step 2: Frequency filtering\n")
-    freq_args <- c(list(), args$frequency)
-    object <- filter_by_frequency(object, args = freq_args)
-  }
-  
-  # Step 3: Count filtering
+  # Step 2: Count filtering
   if (!is.null(args$count)) {
-    cat("  Step 3: Count filtering\n")
+    cat("  Step 2: Count filtering\n")
     count_args <- c(list(), args$count)
     object <- filter_by_count(object, args = count_args)
   }
   
-  # Step 4: Intensity filtering
+  # Step 3: Intensity filtering
   if (!is.null(args$intensity)) {
-    cat("  Step 4: Intensity filtering\n")
+    cat("  Step 3: Intensity filtering\n")
     intensity_args <- c(list(), args$intensity)
     object <- filter_variable_intensity(object, args = intensity_args)
   }
@@ -753,7 +693,7 @@ filter_variables_combined <- function(object, args) {
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Variable Filter 6: Custom Function Filtering
+# Variable Filter 5: Custom Function Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -833,11 +773,13 @@ show_filter_types <- function() {
   
   cat("FOR VARIABLES (target = 'variable_info'):\n")
   cat("  1. 'mz_range'   - Filter by m/z range\n")
-  cat("  2. 'frequency'  - Filter by frequency (proportion of pixels)\n")
-  cat("  3. 'count'      - Filter by count (number of pixels)\n")
-  cat("  4. 'intensity'  - Filter by feature intensity\n")
-  cat("  5. 'combined'   - Apply multiple filters in sequence\n")
-  cat("  6. 'custom'     - Apply custom filter function\n\n")
+  cat("  2. 'count'      - Filter by count (number of pixels with value)\n")
+  cat("  3. 'intensity'  - Filter by feature intensity\n")
+  cat("  4. 'combined'   - Apply multiple filters in sequence\n")
+  cat("  5. 'custom'     - Apply custom filter function\n\n")
+  
+  cat("NOTE: 'frequency' filtering has been removed as the freq column\n")
+  cat("is no longer in the standard variable_info structure.\n\n")
   
   cat("═══════════════════════════════════════════════════════════════\n")
 }

@@ -1,98 +1,11 @@
 # ============================================================================
-# filter_msi_dataset 补充筛选功能
-# 补充 1: 筛选在超过80%像素都存在的m/z（高频特征）
-# 补充 2: 排除掉超过60%的特征都是0的m/z（低质量特征）
+# Supplementary filter_msi_dataset Functions - UPDATED
+# 移除：频率筛选（freq已从variable_info中删除）
+# 保留：高频筛选（基于零值计数），零值过多筛选
 # ============================================================================
 
 # ════════════════════════════════════════════════════════════════════════════════
-# 补充筛选函数 1: 高频 M/Z 筛选（freq > 0.8）
-# ════════════════════════════════════════════════════════════════════════════════
-
-#' Filter High-Frequency M/Z Features (> 80% pixels)
-#'
-#' @description
-#' Retain only m/z features that are present in more than 80% of pixels.
-#' This is useful for selecting robust, abundant features.
-#'
-#' @param object A msi_dataset object
-#' @param freq_threshold Frequency threshold (default: 0.8)
-#'
-#' @return Filtered msi_dataset with high-frequency features only
-#' @export
-#'
-#' @examples
-#' \dontrun{
-#' msi_high_freq <- filter_high_frequency_mz(msi)
-#' }
-
-filter_high_frequency_mz <- function(object, freq_threshold = 0.8) {
-  
-  if (!methods::is(object, "msi_dataset"))
-    stop("object must be a msi_dataset.")
-  
-  if (!("freq" %in% colnames(object@variable_info))) {
-    stop("freq column not found in variable_info.
-         Please ensure variable_info has a 'freq' column.")
-  }
-  
-  cat("═══════════════════════════════════════════════════════════════════\n")
-  cat("Filtering High-Frequency M/Z Features (freq > ", freq_threshold, ")\n")
-  cat("───────────────────────────────────────────────────────────────────\n\n")
-  
-  # Find features with frequency > threshold
-  keep_idx <- object@variable_info$freq > freq_threshold
-  keep_ids <- object@variable_info$variable_id[keep_idx]
-  
-  num_original <- nrow(object@variable_info)
-  num_remaining <- sum(keep_idx)
-  pct_retained <- 100 * num_remaining / num_original
-  
-  cat(sprintf("Frequency threshold: > %.1f%%\n", freq_threshold * 100))
-  cat(sprintf("\nFeatures with frequency > %.1f%%: %d\n", freq_threshold * 100, num_remaining))
-  cat(sprintf("Features removed: %d\n", num_original - num_remaining))
-  cat(sprintf("Retention rate: %.1f%%\n\n", pct_retained))
-  
-  # Show distribution of frequencies
-  freq_stats <- object@variable_info$freq[keep_idx]
-  if (length(freq_stats) > 0) {
-    cat(sprintf("Frequency statistics (remaining features):\n"))
-    cat(sprintf("  Min:    %.4f (%.1f%%)\n", min(freq_stats), min(freq_stats)*100))
-    cat(sprintf("  Q1:     %.4f (%.1f%%)\n", quantile(freq_stats, 0.25), 
-                quantile(freq_stats, 0.25)*100))
-    cat(sprintf("  Median: %.4f (%.1f%%)\n", median(freq_stats), median(freq_stats)*100))
-    cat(sprintf("  Q3:     %.4f (%.1f%%)\n", quantile(freq_stats, 0.75), 
-                quantile(freq_stats, 0.75)*100))
-    cat(sprintf("  Max:    %.4f (%.1f%%)\n\n", max(freq_stats), max(freq_stats)*100))
-  }
-  
-  # Update object
-  new_expr <- object@expression_data[keep_ids, , drop = FALSE]
-  new_vinfo <- object@variable_info[keep_idx, ]
-  
-  object@expression_data <- new_expr
-  object@variable_info <- new_vinfo
-  
-  # Record in process_info
-  process_key <- paste0("filter_high_freq_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
-    function_name = "filter_high_frequency_mz()",
-    parameter = list(freq_threshold = freq_threshold,
-                     num_retained = num_remaining,
-                     num_removed = num_original - num_remaining),
-    time = Sys.time()
-  )
-  object@process_info[[process_key]] <- parameter
-  
-  cat("═══════════════════════════════════════════════════════════════════\n\n")
-  
-  return(object)
-}
-
-
-# ════════════════════════════════════════════════════════════════════════════════
-# 补充筛选函数 2: 排除零值过多的 M/Z（> 60% 零值）
+# 补充筛选函数 1: 排除零值过多的 M/Z（> 60% 零值）
 # ════════════════════════════════════════════════════════════════════════════════
 
 #' Filter Out M/Z Features with Excessive Zero Values (> 60% zeros)
@@ -117,9 +30,9 @@ filter_out_zero_heavy_mz <- function(object, zero_threshold = 0.6) {
   if (!methods::is(object, "msi_dataset"))
     stop("object must be a msi_dataset.")
   
-  cat("═══════════════════════════════════════════════════════════════════\n")
+  cat("═══════════════════════════════════════════════════════════════\n")
   cat("Filtering Out Zero-Heavy M/Z Features (zeros > ", zero_threshold*100, "%)\n")
-  cat("───────────────────────────────────────────────────────────────────\n\n")
+  cat("───────────────────────────────────────────────────────────────\n\n")
   
   # Calculate percentage of zeros for each feature
   zero_percentages <- apply(object@expression_data, 1, function(x) {
@@ -171,7 +84,103 @@ filter_out_zero_heavy_mz <- function(object, zero_threshold = 0.6) {
   )
   object@process_info[[process_key]] <- parameter
   
-  cat("═══════════════════════════════════════════════════════════════════\n\n")
+  cat("═══════════════════════════════════════════════════════════════\n\n")
+  
+  return(object)
+}
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# 补充筛选函数 2: 高频 M/Z 筛选（基于非零像素数量）
+# ════════════════════════════════════════════════════════════════════════════════
+
+#' Filter High-Frequency M/Z Features (Based on Non-Zero Pixel Count)
+#'
+#' @description
+#' Retain only m/z features that have non-zero values in at least N pixels.
+#' This is useful for selecting robust, abundant features.
+#' 
+#' Note: This calculates frequency dynamically from the expression data,
+#' rather than reading from a stored 'freq' column.
+#'
+#' @param object A msi_dataset object
+#' @param min_pixels Minimum number of pixels where feature must be non-zero
+#'
+#' @return Filtered msi_dataset with high-frequency features only
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' msi_high_freq <- filter_high_frequency_mz_by_count(msi, min_pixels = 10)
+#' }
+
+filter_high_frequency_mz_by_count <- function(object, min_pixels = NULL) {
+  
+  if (!methods::is(object, "msi_dataset"))
+    stop("object must be a msi_dataset.")
+  
+  # If min_pixels not specified, use default of 50% of pixels
+  if (is.null(min_pixels)) {
+    min_pixels <- ceiling(ncol(object@expression_data) * 0.5)
+  }
+  
+  cat("═══════════════════════════════════════════════════════════════\n")
+  cat("Filtering High-Frequency M/Z Features (min_pixels >= ", min_pixels, ")\n")
+  cat("───────────────────────────────────────────────────────────────\n\n")
+  
+  # Calculate number of non-zero pixels for each feature
+  non_zero_counts <- apply(object@expression_data, 1, function(x) {
+    sum(x != 0, na.rm = TRUE)
+  })
+  
+  # Keep features with non-zero count >= threshold
+  keep_idx <- non_zero_counts >= min_pixels
+  keep_ids <- object@variable_info$variable_id[keep_idx]
+  
+  num_original <- nrow(object@variable_info)
+  num_remaining <- sum(keep_idx)
+  pct_retained <- 100 * num_remaining / num_original
+  
+  cat(sprintf("Minimum non-zero pixels: %d out of %d (%.1f%%)\n", 
+              min_pixels, ncol(object@expression_data),
+              100 * min_pixels / ncol(object@expression_data)))
+  cat(sprintf("\nFeatures with >= %d non-zero pixels: %d\n", min_pixels, num_remaining))
+  cat(sprintf("Features removed (< %d non-zero pixels): %d\n", min_pixels, 
+              num_original - num_remaining))
+  cat(sprintf("Retention rate: %.1f%%\n\n", pct_retained))
+  
+  # Show distribution of non-zero counts
+  count_stats <- non_zero_counts[keep_idx]
+  if (length(count_stats) > 0) {
+    cat(sprintf("Non-zero pixel count statistics (remaining features):\n"))
+    cat(sprintf("  Min:    %d pixels\n", min(count_stats)))
+    cat(sprintf("  Q1:     %d pixels\n", quantile(count_stats, 0.25)))
+    cat(sprintf("  Median: %d pixels\n", median(count_stats)))
+    cat(sprintf("  Q3:     %d pixels\n", quantile(count_stats, 0.75)))
+    cat(sprintf("  Max:    %d pixels\n\n", max(count_stats)))
+  }
+  
+  # Update object
+  new_expr <- object@expression_data[keep_ids, , drop = FALSE]
+  new_vinfo <- object@variable_info[keep_idx, ]
+  
+  object@expression_data <- new_expr
+  object@variable_info <- new_vinfo
+  
+  # Record in process_info
+  process_key <- paste0("filter_high_freq_count_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+  parameter <- new(
+    Class = "tidymass_parameter",
+    pacakge_name = "msidataset",
+    function_name = "filter_high_frequency_mz_by_count()",
+    parameter = list(min_pixels = min_pixels,
+                     num_retained = num_remaining,
+                     num_removed = num_original - num_remaining),
+    time = Sys.time()
+  )
+  object@process_info[[process_key]] <- parameter
+  
+  cat("═══════════════════════════════════════════════════════════════\n\n")
   
   return(object)
 }
@@ -184,39 +193,39 @@ filter_out_zero_heavy_mz <- function(object, zero_threshold = 0.6) {
 #' Apply Both Supplementary Filters
 #'
 #' @description
-#' Apply both high-frequency and zero-heavy filters in sequence.
+#' Apply both zero-heavy and high-frequency filters in sequence.
 #' This is a convenience function combining the two supplementary filters.
 #'
 #' @param object A msi_dataset object
-#' @param freq_threshold Frequency threshold for high-frequency filter (default: 0.8)
+#' @param min_pixels Minimum number of pixels for high-frequency filter (default: NULL, uses 50%)
 #' @param zero_threshold Zero percentage threshold (default: 0.6)
 #'
 #' @return Filtered msi_dataset
 #' @export
 
-filter_supplementary <- function(object, freq_threshold = 0.8, zero_threshold = 0.6) {
+filter_supplementary <- function(object, min_pixels = NULL, zero_threshold = 0.6) {
   
   if (!methods::is(object, "msi_dataset"))
     stop("object must be a msi_dataset.")
   
   cat("\n")
-  cat("╔═══════════════════════════════════════════════════════════════════╗\n")
-  cat("║              Applying Supplementary Filters                       ║\n")
-  cat("╚═══════════════════════════════════════════════════════════════════╝\n\n")
+  cat("╔═══════════════════════════════════════════════════════════════╗\n")
+  cat("║              Applying Supplementary Filters                   ║\n")
+  cat("╚═══════════════════════════════════════════════════════════════╝\n\n")
   
-  # Step 1: Filter high-frequency m/z
-  cat("Step 1: High-Frequency M/Z Filter\n")
-  cat("─────────────────────────────────────────────────────────────────\n")
-  object <- filter_high_frequency_mz(object, freq_threshold = freq_threshold)
-  
-  # Step 2: Filter zero-heavy m/z
-  cat("Step 2: Zero-Heavy M/Z Filter\n")
-  cat("─────────────────────────────────────────────────────────────────\n")
+  # Step 1: Filter zero-heavy m/z
+  cat("Step 1: Zero-Heavy M/Z Filter\n")
+  cat("─────────────────────────────────────────────────────────────\n")
   object <- filter_out_zero_heavy_mz(object, zero_threshold = zero_threshold)
   
-  cat("╔═══════════════════════════════════════════════════════════════════╗\n")
-  cat("║              Supplementary Filtering Complete                     ║\n")
-  cat("╚═══════════════════════════════════════════════════════════════════╝\n\n")
+  # Step 2: Filter high-frequency m/z
+  cat("Step 2: High-Frequency M/Z Filter (by non-zero count)\n")
+  cat("─────────────────────────────────────────────────────────────\n")
+  object <- filter_high_frequency_mz_by_count(object, min_pixels = min_pixels)
+  
+  cat("╔═══════════════════════════════════════════════════════════════╗\n")
+  cat("║              Supplementary Filtering Complete                 ║\n")
+  cat("╚═══════════════════════════════════════════════════════════════╝\n\n")
   
   return(object)
 }
@@ -226,11 +235,11 @@ filter_supplementary <- function(object, freq_threshold = 0.8, zero_threshold = 
 # 增强的 filter_msi_dataset 函数：支持新的筛选类型
 # ════════════════════════════════════════════════════════════════════════════════
 
-#' Enhanced filter_msi_dataset with Supplementary Filter Types
+#' Extended filter_msi_dataset with Supplementary Filter Types
 #'
 #' @description
-#' Extended version of filter_msi_dataset that supports two new filter types:
-#' - "high_frequency": Filter features present in > 80% of pixels
+#' Extended version of filter_msi_dataset that supports two supplementary filter types:
+#' - "high_frequency_count": Filter features by minimum non-zero pixel count
 #' - "zero_heavy": Filter out features with > 60% zero values
 #'
 #' @param object A msi_dataset object
@@ -257,11 +266,11 @@ filter_msi_dataset_supplementary <- function(object,
   switch(filter_type,
          
          # ────────────────────────────────────────────────────────────────────
-         # 补充类型 1: 高频 M/Z 筛选
+         # 补充类型 1: 高频 M/Z 筛选（基于非零像素计数）
          # ────────────────────────────────────────────────────────────────────
-         "high_frequency" = {
-           freq_threshold <- args$freq_threshold %||% 0.8
-           object <- filter_high_frequency_mz(object, freq_threshold = freq_threshold)
+         "high_frequency_count" = {
+           min_pixels <- args$min_pixels %||% NULL
+           object <- filter_high_frequency_mz_by_count(object, min_pixels = min_pixels)
          },
          
          # ────────────────────────────────────────────────────────────────────
@@ -276,14 +285,14 @@ filter_msi_dataset_supplementary <- function(object,
          # 补充类型 3: 组合补充筛选
          # ────────────────────────────────────────────────────────────────────
          "supplementary" = {
-           freq_threshold <- args$freq_threshold %||% 0.8
+           min_pixels <- args$min_pixels %||% NULL
            zero_threshold <- args$zero_threshold %||% 0.6
-           object <- filter_supplementary(object, freq_threshold, zero_threshold)
+           object <- filter_supplementary(object, min_pixels, zero_threshold)
          },
          
          {
            stop(sprintf("Unknown supplementary filter_type: '%s'.
-                   Available types are: 'high_frequency', 'zero_heavy', 'supplementary'",
+                   Available types are: 'high_frequency_count', 'zero_heavy', 'supplementary'",
                         filter_type))
          }
   )
@@ -293,57 +302,65 @@ filter_msi_dataset_supplementary <- function(object,
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# 辅助函数：显示 M/Z 统计信息
+# 辅助函数：显示 M/Z 统计信息（不依赖 freq 列）
 # ════════════════════════════════════════════════════════════════════════════════
 
-#' Show M/Z Statistics Before and After Filtering
+#' Show M/Z Statistics (Calculated from Expression Data)
 #'
 #' @description
-#' Display detailed statistics about m/z features, including frequency and zero distributions.
+#' Display detailed statistics about m/z features by calculating from expression data.
+#' No longer requires 'freq' column in variable_info.
 #'
 #' @param object A msi_dataset object
-#' @param show_distribution Logical, whether to show distribution plots
 #'
 #' @return Data frame with statistics (invisibly)
 #' @export
 
-show_mz_statistics <- function(object, show_distribution = TRUE) {
+show_mz_statistics <- function(object) {
   
   if (!methods::is(object, "msi_dataset"))
     stop("object must be a msi_dataset.")
   
   cat("\n")
-  cat("═══════════════════════════════════════════════════════════════════\n")
+  cat("═══════════════════════════════════════════════════════════════\n")
   cat("                      M/Z Statistics\n")
-  cat("═══════════════════════════════════════════════════════════════════\n\n")
+  cat("═══════════════════════════════════════════════════════════════\n\n")
   
   # Calculate statistics
   num_features <- nrow(object@variable_info)
   num_pixels <- ncol(object@expression_data)
   
-  # Frequency statistics
-  if ("freq" %in% colnames(object@variable_info)) {
-    freqs <- object@variable_info$freq
-    cat("Frequency Statistics (proportion of pixels where m/z is present):\n")
-    cat(sprintf("  Count:  %d\n", num_features))
-    cat(sprintf("  Min:    %.4f (%.1f%%)\n", min(freqs), min(freqs)*100))
-    cat(sprintf("  Q1:     %.4f (%.1f%%)\n", quantile(freqs, 0.25), 
-                quantile(freqs, 0.25)*100))
-    cat(sprintf("  Median: %.4f (%.1f%%)\n", median(freqs), median(freqs)*100))
-    cat(sprintf("  Q3:     %.4f (%.1f%%)\n", quantile(freqs, 0.75), 
-                quantile(freqs, 0.75)*100))
-    cat(sprintf("  Max:    %.4f (%.1f%%)\n\n", max(freqs), max(freqs)*100))
-    
-    # Count features in different frequency ranges
-    cat(sprintf("  Features with freq > 0.8: %d (%.1f%%)\n",
-                sum(freqs > 0.8), 100*sum(freqs > 0.8)/num_features))
-    cat(sprintf("  Features with freq > 0.5: %d (%.1f%%)\n",
-                sum(freqs > 0.5), 100*sum(freqs > 0.5)/num_features))
-    cat(sprintf("  Features with freq > 0.2: %d (%.1f%%)\n",
-                sum(freqs > 0.2), 100*sum(freqs > 0.2)/num_features))
-    cat(sprintf("  Features with freq > 0.1: %d (%.1f%%)\n\n",
-                sum(freqs > 0.1), 100*sum(freqs > 0.1)/num_features))
-  }
+  # Calculate non-zero counts for each feature
+  non_zero_counts <- apply(object@expression_data, 1, function(x) {
+    sum(x != 0, na.rm = TRUE)
+  })
+  
+  non_zero_freq <- non_zero_counts / num_pixels
+  
+  cat("Non-Zero Frequency Statistics (calculated from expression data):\n")
+  cat(sprintf("  Count:  %d features\n", num_features))
+  cat(sprintf("  Min:    %.4f (%.1f%% of %d pixels)\n", 
+              min(non_zero_freq), min(non_zero_freq)*100, num_pixels))
+  cat(sprintf("  Q1:     %.4f (%.1f%% of %d pixels)\n", 
+              quantile(non_zero_freq, 0.25), 
+              quantile(non_zero_freq, 0.25)*100, num_pixels))
+  cat(sprintf("  Median: %.4f (%.1f%% of %d pixels)\n", 
+              median(non_zero_freq), median(non_zero_freq)*100, num_pixels))
+  cat(sprintf("  Q3:     %.4f (%.1f%% of %d pixels)\n", 
+              quantile(non_zero_freq, 0.75), 
+              quantile(non_zero_freq, 0.75)*100, num_pixels))
+  cat(sprintf("  Max:    %.4f (%.1f%% of %d pixels)\n\n", 
+              max(non_zero_freq), max(non_zero_freq)*100, num_pixels))
+  
+  # Count features in different frequency ranges
+  cat(sprintf("  Features with non-zero freq > 0.8: %d (%.1f%%)\n",
+              sum(non_zero_freq > 0.8), 100*sum(non_zero_freq > 0.8)/num_features))
+  cat(sprintf("  Features with non-zero freq > 0.5: %d (%.1f%%)\n",
+              sum(non_zero_freq > 0.5), 100*sum(non_zero_freq > 0.5)/num_features))
+  cat(sprintf("  Features with non-zero freq > 0.2: %d (%.1f%%)\n",
+              sum(non_zero_freq > 0.2), 100*sum(non_zero_freq > 0.2)/num_features))
+  cat(sprintf("  Features with non-zero freq > 0.1: %d (%.1f%%)\n\n",
+              sum(non_zero_freq > 0.1), 100*sum(non_zero_freq > 0.1)/num_features))
   
   # Zero percentage statistics
   zero_percentages <- apply(object@expression_data, 1, function(x) {
@@ -369,14 +386,15 @@ show_mz_statistics <- function(object, show_distribution = TRUE) {
   cat(sprintf("  Features with > 60%% zeros: %d (%.1f%%)\n\n",
               sum(zero_percentages > 60), 100*sum(zero_percentages > 60)/num_features))
   
-  cat("═══════════════════════════════════════════════════════════════════\n\n")
+  cat("═══════════════════════════════════════════════════════════════\n\n")
   
   # Return statistics invisibly
   stats_df <- data.frame(
-    metric = c("num_features", "num_pixels", "freq_min", "freq_median", "freq_max",
-               "zero_min", "zero_median", "zero_max"),
+    metric = c("num_features", "num_pixels", 
+               "non_zero_freq_min", "non_zero_freq_median", "non_zero_freq_max",
+               "zero_pct_min", "zero_pct_median", "zero_pct_max"),
     value = c(num_features, num_pixels,
-              min(freqs), median(freqs), max(freqs),
+              min(non_zero_freq), median(non_zero_freq), max(non_zero_freq),
               min(zero_percentages), median(zero_percentages), max(zero_percentages))
   )
   
@@ -392,6 +410,7 @@ show_mz_statistics <- function(object, show_distribution = TRUE) {
 #'
 #' @description
 #' Analyze the data distribution and recommend suitable filter parameters.
+#' Now based on non-zero counts instead of stored freq column.
 #'
 #' @param object A msi_dataset object
 #'
@@ -404,32 +423,37 @@ recommend_filter_params <- function(object) {
     stop("object must be a msi_dataset.")
   
   cat("\n")
-  cat("═══════════════════════════════════════════════════════════════════\n")
+  cat("═══════════════════════════════════════════════════════════════\n")
   cat("              Recommended Filter Parameters\n")
-  cat("═══════════════════════════════════════════════════════════════════\n\n")
+  cat("═══════════════════════════════════════════════════════════════\n\n")
   
-  # Analyze frequency distribution
-  if ("freq" %in% colnames(object@variable_info)) {
-    freqs <- object@variable_info$freq
-    freq_median <- median(freqs)
-    freq_q3 <- quantile(freqs, 0.75)
-    
-    cat("Frequency Analysis:\n")
-    cat(sprintf("  Median frequency: %.3f (%.1f%%)\n", freq_median, freq_median*100))
-    cat(sprintf("  Q3 frequency:     %.3f (%.1f%%)\n", freq_q3, freq_q3*100))
-    
-    if (freq_median < 0.3) {
-      cat("  Recommendation: Data is sparse. Use freq_threshold = 0.2-0.3\n\n")
-      freq_rec <- 0.2
-    } else if (freq_median < 0.6) {
-      cat("  Recommendation: Data is moderately sparse. Use freq_threshold = 0.3-0.5\n\n")
-      freq_rec <- 0.3
-    } else {
-      cat("  Recommendation: Data is dense. Use freq_threshold = 0.5-0.8\n\n")
-      freq_rec <- 0.5
-    }
+  # Analyze non-zero count distribution
+  non_zero_counts <- apply(object@expression_data, 1, function(x) {
+    sum(x != 0, na.rm = TRUE)
+  })
+  
+  num_pixels <- ncol(object@expression_data)
+  non_zero_median <- median(non_zero_counts)
+  non_zero_q3 <- quantile(non_zero_counts, 0.75)
+  
+  cat("Non-Zero Count Analysis:\n")
+  cat(sprintf("  Median non-zero count: %d out of %d pixels (%.1f%%)\n", 
+              non_zero_median, num_pixels, 100*non_zero_median/num_pixels))
+  cat(sprintf("  Q3 non-zero count:     %d out of %d pixels (%.1f%%)\n", 
+              non_zero_q3, num_pixels, 100*non_zero_q3/num_pixels))
+  
+  if (non_zero_median < 0.3 * num_pixels) {
+    cat("  Recommendation: Data is sparse. Use min_pixels = ", 
+        ceiling(0.2 * num_pixels), "\n\n")
+    min_pixels_rec <- ceiling(0.2 * num_pixels)
+  } else if (non_zero_median < 0.6 * num_pixels) {
+    cat("  Recommendation: Data is moderately sparse. Use min_pixels = ", 
+        ceiling(0.3 * num_pixels), "\n\n")
+    min_pixels_rec <- ceiling(0.3 * num_pixels)
   } else {
-    freq_rec <- 0.2
+    cat("  Recommendation: Data is dense. Use min_pixels = ", 
+        ceiling(0.5 * num_pixels), "\n\n")
+    min_pixels_rec <- ceiling(0.5 * num_pixels)
   }
   
   # Analyze zero distribution
@@ -456,23 +480,34 @@ recommend_filter_params <- function(object) {
   }
   
   cat("Suggested Usage:\n")
-  cat(sprintf("  # High-frequency filter\n"))
-  cat(sprintf("  msi <- filter_msi_dataset_supplementary(\n"))
-  cat(sprintf("    msi, filter_type = 'high_frequency', freq_threshold = %.1f)\n\n", freq_rec))
-  
   cat(sprintf("  # Zero-heavy filter\n"))
   cat(sprintf("  msi <- filter_msi_dataset_supplementary(\n"))
   cat(sprintf("    msi, filter_type = 'zero_heavy', zero_threshold = %.1f)\n\n", zero_rec))
   
+  cat(sprintf("  # High-frequency filter (by non-zero count)\n"))
+  cat(sprintf("  msi <- filter_msi_dataset_supplementary(\n"))
+  cat(sprintf("    msi, filter_type = 'high_frequency_count', min_pixels = %d)\n\n", 
+              min_pixels_rec))
+  
   cat(sprintf("  # Or both together\n"))
   cat(sprintf("  msi <- filter_msi_dataset_supplementary(\n"))
   cat(sprintf("    msi, filter_type = 'supplementary',\n"))
-  cat(sprintf("    freq_threshold = %.1f, zero_threshold = %.1f)\n\n", freq_rec, zero_rec))
+  cat(sprintf("    min_pixels = %d, zero_threshold = %.1f)\n\n", 
+              min_pixels_rec, zero_rec))
   
-  cat("═══════════════════════════════════════════════════════════════════\n\n")
+  cat("═══════════════════════════════════════════════════════════════\n\n")
   
   return(invisible(list(
-    freq_threshold = freq_rec,
+    min_pixels = min_pixels_rec,
     zero_threshold = zero_rec
   )))
+}
+
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Helper: %||% operator (null coalescing)
+# ════════════════════════════════════════════════════════════════════════════════
+
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
 }

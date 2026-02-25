@@ -13,16 +13,20 @@ convert_cardinal2msi_dataset(
 )
 }
 \arguments{
-\item{cardinal_object}{Cardinal}
+\item{cardinal_object}{Cardinal object}
 
-\item{sample_name}{sample name}
+\item{sample_name}{Sample name (character)}
 
-\item{section_name}{section name}
+\item{section_name}{Section/slice name (character)}
 
-\item{resolution}{um}
+\item{resolution}{Spatial resolution in micrometers per pixel (numeric, optional)}
 
-\item{matrix_name}{CHCA|DHB|NEDC}
+\item{matrix_name}{MALDI matrix name: CHCA, DHB, NEDC, noMatrix (character, optional)}
 }
 \description{
-Convert Cardinal object to msi_dataset
+Convert Cardinal object to msi_dataset with new structure:
+\itemize{
+\item sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix
+\item variable_info: variable_id, mz, ms2
+}
 }

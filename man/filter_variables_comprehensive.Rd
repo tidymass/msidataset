@@ -10,11 +10,11 @@ filter_variables_comprehensive(object, filter_type = "mz_range", ...)
 Provides multiple filtering strategies for variables/m/z features:
 \itemize{
 \item "mz_range": Filter by m/z range
-\item "frequency": Filter by frequency (proportion of pixels)
 \item "count": Filter by count (number of pixels)
 \item "intensity": Filter by feature intensity (mean, median)
-\item "combined": Apply multiple filters in sequence
 \item "custom": Apply custom filter function
 }
+
+Note: "frequency" filtering has been removed as freq column is no longer in variable_info
 }
 \keyword{internal}

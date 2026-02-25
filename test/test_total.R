@@ -5,15 +5,15 @@
 #
 # Workflow:
 #   Step 1 : Read .imzML -> Cardinal -> msi_dataset
-#   Step 2 : Validate & explore data structure
-#   Step 3 : Accessor methods (getters / setters)
-#   Step 4 : Subsetting with [
-#   Step 5 : filter_pixels() / filter_variables()
-#   Step 6 : activate() + process_info
-#   Step 7 : update_msi_dataset()
-#   Step 8 : msi_dataset <-> massdataset round-trip
-#   Step 9 : msi_dataset -> Cardinal (back-conversion)
-#   Step 10: Update metadata (tissue type, organism, date ...)
+#   Step 2 : Add notes
+#   Step 3 : Filter_variables() / filter_pixels()
+#   Step 4 : activate() + process_info
+#   Step 5 : 
+#   Step 6 : 
+#   Step 7 : 
+#   Step 8 : 
+#   Step 9 : 
+#   Step 10: 
 #   Step 11: Save & reload final check
 # ============================================================================
 
@@ -43,7 +43,7 @@ cardinal_obj <- readMSIData(
   "data/demo data/03-total ion count.imzML",
   memory = FALSE
 )
-cat("Cardinal class:", class(cardinal_obj)[1], "\n")
+
 # print(cardinal_obj)
 # print(experimentData)
 
@@ -106,7 +106,7 @@ msi_samples_combined <- filter_msi_dataset(
 # 1. filter_mz_range()
 msi_mz_range <- filter_msi_dataset(
   my_msi_full, target = "variable_info", filter_type = "mz_range",
-  mz_min = 100, mz_max = 1000
+  mz_min = 300, mz_max = 500
 )
 
 # 2. filter_by_frequency()
@@ -118,21 +118,22 @@ msi_freq <- filter_msi_dataset(
 
 # 3. filter_by_count()
 msi_count <- filter_msi_dataset(
-  msi, target = "variable_info", filter_type = "count",
+  my_msi_full, target = "variable_info", filter_type = "count",
   count_min = 5,    
   count_max = 54    
 )
 
 # 4. filter_variable_intensity()
 msi <- filter_msi_dataset(
-  msi, target = "variable_info", filter_type = "intensity",
+  my_msi_full, target = "variable_info", filter_type = "intensity",
   intensity_type = "median", intensity_threshold = 50
 )
 
-## filter supplementary
+## **filter supplementary**
 show_mz_statistics(my_msi_full)
 
 params <- recommend_filter_params(my_msi_full)
+
 
 # 1. high freq mz（freq > 0.2）
 msi_high_freq <- filter_msi_dataset_supplementary(

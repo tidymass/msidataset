@@ -2,18 +2,17 @@
 % Please edit documentation in R/filter_supplementary.R
 \name{show_mz_statistics}
 \alias{show_mz_statistics}
-\title{Show M/Z Statistics Before and After Filtering}
+\title{Show M/Z Statistics (Calculated from Expression Data)}
 \usage{
-show_mz_statistics(object, show_distribution = TRUE)
+show_mz_statistics(object)
 }
 \arguments{
 \item{object}{A msi_dataset object}
-
-\item{show_distribution}{Logical, whether to show distribution plots}
 }
 \value{
 Data frame with statistics (invisibly)
 }
 \description{
-Display detailed statistics about m/z features, including frequency and zero distributions.
+Display detailed statistics about m/z features by calculating from expression data.
+No longer requires 'freq' column in variable_info.
 }

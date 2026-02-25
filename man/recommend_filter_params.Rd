@@ -14,4 +14,5 @@ List with recommended parameters
 }
 \description{
 Analyze the data distribution and recommend suitable filter parameters.
+Now based on non-zero counts instead of stored freq column.
 }

@@ -1,5 +1,8 @@
 # ============================================================================
-# Enhanced sample_info_note and variable_info_note Documentation
+# Enhanced sample_info_note and variable_info_note Documentation - UPDATED
+# Updated to match new structure:
+# - sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix (8 columns)
+# - variable_info: variable_id, mz, ms2 (3 columns)
 # ============================================================================
 
 #' Create Enhanced sample_info_note
@@ -12,27 +15,22 @@ create_enhanced_sample_info_note <- function(msi_object) {
   
   # Define meanings for standard MSI spatial and metadata columns
   standard_meanings <- list(
+    pixel_id = "Unique pixel identifier. Used to distinguish each individual pixel/sample position in the imaging space.",
+    
+    x = "The X-axis coordinate of the pixel in the imaging space. Usually corresponds to the horizontal position.",
+    
+    y = "The Y-axis coordinate of the pixel in the imaging space. Usually corresponds to the vertical position.",
+    
+    z = "The Z-axis coordinate of the pixel. Represents the depth of a tissue section or different slice layers in a 3D dataset.",
+    
     sample_id = "Unique sample identifier used to distinguish different biological samples (e.g., tissue from different individuals).",
-    
-    x = "The X-axis coordinate of the sample/pixel in the imaging space. Usually corresponds to the horizontal position.",
-    
-    y = "The Y-axis coordinate of the sample/pixel in the imaging space. Usually corresponds to the vertical position.",
-    
-    z = "The Z-axis coordinate of the sample/pixel. May represent the depth of a tissue section or different slice layers in a 3D dataset.",
-    
-    run = "Experimental run or batch number. Used to distinguish data acquired at different times or under different instrument conditions; important for batch effect correction.",
-    
-    X3DPositionX = "The X coordinate in 3D space (if the data includes 3D reconstruction information).",
-    
-    X3DPositionY = "The Y coordinate in 3D space.",
-    
-    X3DPositionZ = "The Z coordinate in 3D space.",
     
     section_id = "Unique section identifier. If a sample is cut into multiple slices for imaging, this ID distinguishes different slices.",
     
     resolution = "Imaging resolution. Usually expressed in micrometers per pixel (µm/pixel), indicating the actual tissue size represented by one pixel.",
     
     matrix = "The matrix used in MALDI (Matrix-Assisted Laser Desorption/Ionization). Records which matrix was applied to assist ionization for this sample."
+    
   )
   
   # Build note table
@@ -71,11 +69,7 @@ create_enhanced_variable_info_note <- function(msi_object) {
     
     mz = "Mass-to-charge ratio. The core variable in mass spectrometry data, representing the ratio of an ion's mass to its charge number.",
     
-    count = "Count. Refers to the number of non-zero pixels for this m/z value in the dataset, or the total frequency of this feature's appearance (depending on the data processing pipeline).",
-    
-    freq = "Frequency. Usually refers to the proportion of pixels where this m/z value is present (i.e., count divided by the total number of pixels).",
-    
-    ms2 = "Logical indicator. Indicates whether MS2 (tandem mass spectrometry) data is available for this m/z feature."
+    ms2 = "MS2 availability indicator (yes or no). Indicates whether tandem mass spectrometry (MS2) fragmentation data is available for this m/z feature."
   )
   
   # Build note table
@@ -130,104 +124,118 @@ update_msi_notes <- function(msi_object) {
 
 
 # ============================================================================
-# USAGE EXAMPLE 2: Manual enhancement with custom meanings
+# FIELD DEFINITIONS - Updated Structure
 # ============================================================================
 
-# create_enhanced_sample_info_note <- function(msi_object) {
-#   sample_info_note <- create_enhanced_sample_info_note(msi_object)
-#   
-#   # Add custom meanings for additional columns
-#   # sample_info_note$meaning[sample_info_note$name == "custom_col"] <- 
-#   #   "My custom explanation..."
-#   
-#   return(sample_info_note)
-# }
-
-
-# ============================================================================
-# Detailed Field Definitions Reference
-# ============================================================================
-
-# SAMPLE_INFO COLUMNS (Spatial & Metadata):
-# ──────────────────────────────────────────
+# SAMPLE_INFO COLUMNS (8 required/common columns):
+# ─────────────────────────────────────────────────
 # 
-# sample_id
-#   Purpose: Unique identifier for each pixel/sample
+# pixel_id (REQUIRED)
+#   Purpose: Unique identifier for each pixel in the imaging space
 #   Type: character
-#   Usage: Internal indexing, traceability
-#   Example: "renal_cancer_pixel_1", "renal_cancer_pixel_2"
+#   Usage: Column names of expression_data; primary index for pixels
+#   Example: "pixel_1", "pixel_2", "pixel_54"
 #
-# x, y
-#   Purpose: 2D spatial coordinates in the imaging space
+# x (REQUIRED)
+#   Purpose: X-axis spatial coordinate in the imaging space
 #   Type: numeric
-#   Usage: Spatial mapping, visualization
-#   Range: Depends on imaging resolution and sample size
+#   Usage: Spatial mapping, visualization, filtering
+#   Range: Depends on imaging resolution and sample size (e.g., 1-10)
 #
-# z (optional)
-#   Purpose: 3D depth coordinate or slice indicator
+# y (REQUIRED)
+#   Purpose: Y-axis spatial coordinate in the imaging space
+#   Type: numeric
+#   Usage: Spatial mapping, visualization, filtering
+#   Range: Depends on imaging resolution and sample size (e.g., 1-6)
+#
+# z (OPTIONAL)
+#   Purpose: Z-axis spatial coordinate; depth of tissue section or slice layer
 #   Type: numeric
 #   Usage: 3D reconstruction, multi-slice datasets
-#   Common in: Tissue sectioning, volumetric imaging
+#   Example: 1 for single slice, 1-5 for multi-slice
 #
-# run (optional)
-#   Purpose: Batch effect tracking
-#   Type: character/numeric
-#   Usage: Quality control, batch correction
-#   Example: "run1", "run2", or 1, 2, 3
-#
-# section_id (optional)
-#   Purpose: Slice identifier for multi-section samples
+# sample_id (REQUIRED)
+#   Purpose: Unique identifier for the biological sample
 #   Type: character
-#   Usage: Distinguishing multiple sections of same tissue
+#   Usage: Distinguish different individuals or biological replicates
+#   Example: "renal_cancer_1", "control_2"
+#
+# section_id (OPTIONAL)
+#   Purpose: Unique section/slice identifier within a sample
+#   Type: character
+#   Usage: Distinguish multiple sections cut from the same tissue
 #   Example: "slice_01", "slice_02"
 #
-# resolution (optional)
-#   Purpose: Recording imaging resolution
+# resolution (OPTIONAL)
+#   Purpose: Spatial resolution of the imaging
 #   Type: numeric
 #   Unit: micrometers per pixel (µm/pixel)
-#   Usage: Spatial scale information
-#   Example: 25 (25 µm/pixel)
+#   Usage: Recording imaging resolution for downstream analysis
+#   Example: 25 (meaning 25 µm/pixel)
 #
-# matrix (optional)
-#   Purpose: MALDI matrix recording
+# matrix (OPTIONAL)
+#   Purpose: MALDI matrix type used for ionization
 #   Type: character
-#   Common values: "DHB", "CHCA", "MALDI", "noMatrix"
-#   Usage: Method documentation, comparison studies
+#   Common values: "DHB", "CHCA", "NEDC", "noMatrix"
+#   Usage: Method documentation and cross-sample comparisons
 
 
-# VARIABLE_INFO COLUMNS (m/z & Feature Data):
-# ──────────────────────────────────────────
+# VARIABLE_INFO COLUMNS (3 columns):
+# ─────────────────────────────────
 #
-# variable_id
+# variable_id (REQUIRED)
 #   Purpose: Unique identifier for each m/z feature
 #   Type: character
-#   Usage: Internal indexing, feature traceability
-#   Example: "m50_1", "m200_15", "m500_3"
+#   Usage: Row names of expression_data; primary index for features
+#   Example: "m50.0038_1", "m200.1234_15", "m500.5678_3"
 #   Generated by: generate_variable_id() function
 #
-# mz
+# mz (REQUIRED)
 #   Purpose: Mass-to-charge ratio
 #   Type: numeric
-#   Usage: Chemical composition identification, filtering
-#   Range: Depends on mass spectrometer (e.g., 50-1000 m/z)
+#   Usage: Chemical composition identification, feature filtering
+#   Range: Depends on mass spectrometer (e.g., 50-1000)
 #   Precision: Usually 4-5 decimal places
+#   Example: 200.1234, 500.5678
 #
-# count (optional)
-#   Purpose: Feature prevalence measure
+# ms2 (OPTIONAL)
+#   Purpose: Indicates availability of MS2 fragmentation data
+#   Type: character (yes/no) or logical (TRUE/FALSE)
+#   Usage: Identifying features with MS2 fragmentation spectra
+#   Example: "yes" or "no"; or TRUE or FALSE
+#
+# (Optional additional columns that may be added later)
+# count (OPTIONAL)
+#   Purpose: Number of non-zero pixels for this m/z feature
 #   Type: numeric (integer)
-#   Interpretation: Number of pixels where this m/z is detected (non-zero)
-#   Usage: Quality filtering, spurious signal removal
-#   Example: If count=50 and total pixels=100, freq would be 0.5
+#   Usage: Feature quality filtering
 #
-# freq (optional)
-#   Purpose: Feature prevalence as proportion
+# freq (OPTIONAL)
+#   Purpose: Proportion of pixels where this m/z is present
 #   Type: numeric (0-1)
 #   Calculation: count / total_pixels
-#   Usage: Filtering common/rare features
-#   Example: freq=0.2 means feature present in 20% of pixels
+#   Usage: Feature filtering by prevalence
+#   Example: 0.2 means feature present in 20% of pixels
+
+
+# ============================================================================
+# Summary of Changes from Previous Version
+# ============================================================================
+
+# 1. sample_info structure updated:
+#    - Added pixel_id as REQUIRED (used for column names of expression_data)
+#    - sample_id is now a separate column (not used for column names)
+#    - Total columns: 8 (pixel_id, x, y, z, sample_id, section_id, resolution, matrix)
 #
-# ms2 (optional)
-#   Purpose: MS2 spectra availability
-#   Type: logical
-#   Usage: Identifying features with fragmentation data
-#   Example: TRUE if MS2 available, FALSE otherwise
+# 2. variable_info structure updated:
+#    - Simplified to 3 core columns: variable_id, mz, ms2
+#    - ms2 is now a yes/no indicator (character) not logical
+#    - Removed optional count/freq from standard structure
+#
+# 3. expression_data naming:
+#    - Column names now use pixel_id (not sample_id)
+#    - Row names use variable_id (unchanged)
+#
+# 4. Updated notes to reflect new structure:
+#    - All 8 sample_info columns documented
+#    - All 3 variable_info columns documented

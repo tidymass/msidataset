@@ -29,9 +29,9 @@ obj <- filter_msi_dataset(obj, target = "sample_info",
                           filter_type = "spatial",
                           x_min = 2, x_max = 8, y_min = 1, y_max = 5)
 
-# Filter variables by frequency
+# Filter variables by m/z range
 obj <- filter_msi_dataset(obj, target = "variable_info",
-                          filter_type = "frequency",
-                          freq_threshold = 0.2)
+                          filter_type = "mz_range",
+                          mz_min = 100, mz_max = 1000)
 }
 }

@@ -4,12 +4,12 @@
 \alias{filter_supplementary}
 \title{Apply Both Supplementary Filters}
 \usage{
-filter_supplementary(object, freq_threshold = 0.8, zero_threshold = 0.6)
+filter_supplementary(object, min_pixels = NULL, zero_threshold = 0.6)
 }
 \arguments{
 \item{object}{A msi_dataset object}
 
-\item{freq_threshold}{Frequency threshold for high-frequency filter (default: 0.8)}
+\item{min_pixels}{Minimum number of pixels for high-frequency filter (default: NULL, uses 50\%)}
 
 \item{zero_threshold}{Zero percentage threshold (default: 0.6)}
 }
@@ -17,6 +17,6 @@ filter_supplementary(object, freq_threshold = 0.8, zero_threshold = 0.6)
 Filtered msi_dataset
 }
 \description{
-Apply both high-frequency and zero-heavy filters in sequence.
+Apply both zero-heavy and high-frequency filters in sequence.
 This is a convenience function combining the two supplementary filters.
 }

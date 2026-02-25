@@ -2,7 +2,7 @@
 % Please edit documentation in R/msi_dataset_accessors.R
 \name{get_spatial_coords,msi_dataset-method}
 \alias{get_spatial_coords,msi_dataset-method}
-\title{Get spatial coordinates (x, y, z) from a msi_dataset}
+\title{Get spatial coordinates (pixel_id, x, y, z) from a msi_dataset}
 \usage{
 \S4method{get_spatial_coords}{msi_dataset}(object)
 }
@@ -10,9 +10,9 @@
 \item{object}{A \code{msi_dataset} object.}
 }
 \value{
-A \code{data.frame} with columns \code{sample_id}, \code{x},
-\code{y}, \code{z}.
+A \code{data.frame} with columns \code{pixel_id}, \code{sample_id},
+\code{x}, \code{y}, \code{z}.
 }
 \description{
-Get spatial coordinates (x, y, z) from a msi_dataset
+Get spatial coordinates (pixel_id, x, y, z) from a msi_dataset
 }

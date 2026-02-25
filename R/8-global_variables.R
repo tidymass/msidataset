@@ -1,0 +1,44 @@
+#' @title Global Variables for msidataset
+#' @description This file defines global variables to avoid "no visible binding for global variable" notes during R CMD check.
+
+globalVariables(names = c(
+  # Base Core Variables
+  ".", 
+  "value", 
+  "name", 
+  "index",
+  
+  # Mass Spectrometry Core
+  "mz", 
+  "intensity", 
+  "variable_id", 
+  "sample_id",
+  
+  # MSI Specific Spatial Variables
+  "x", 
+  "y", 
+  "z", 
+  "pixel_id", 
+  "coordinate_x", 
+  "coordinate_y",
+  "sum_intensity",
+  "mean_intensity",
+  "median_intensity",
+  "tic", # Total Ion Count
+  "bpi", # Base Peak Intensity
+  
+  # Data Cleaning & Metadata
+  "na_number",
+  "na_freq",
+  "p_value",
+  "p_value_adjust",
+  "vip",
+  "fdr",
+  
+  # Activation & Slots
+  "sample_info",
+  "variable_info",
+  "expression_data",
+  "annotation_table",
+  "activated"
+))
