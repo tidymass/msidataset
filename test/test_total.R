@@ -147,7 +147,7 @@ msi_no_zeros <- filter_msi_dataset_supplementary(
 
 print(msi_no_zeros)
 
-# 3. intensity (> 3%)
+# 3. intensity (> 3%)?
 msi_intensity <- filter_msi_dataset(
   msi_no_zeros, target = "sample_info", filter_type = "intensity",
   intensity_type = "median", intensity_threshold = 90
@@ -162,24 +162,18 @@ msi_filtered <- filter_msi_dataset_supplementary(
 
 print(msi_filtered)
 
+## plot
+plot_msi_filtered(
+  msi_filtered,           # 筛选后的msi_dataset对象
+  variable_id = NULL,     # 变量ID，如"var_1"
+  mz = NULL,              # m/z值，如885.55
+  mz_tolerance = 0.01,    # m/z匹配的容差
+  title = NULL,           # 自定义标题
+  color_scale = "viridis",# 颜色方案：viridis、magma、plasma、inferno、cividis
+  transform = "none",     # 数据转换：none、log10、sqrt
+  add_grid = TRUE         # 是否添加网格线
+)
 
-# # 1. 查看处理信息摘要（简洁版）
-show_process_info(msi_filtered, detailed = FALSE, verbose = FALSE)
-
-# # 2. 查看完整的处理信息（推荐）
-show_process_info(msi_filtered, detailed = TRUE, verbose = TRUE)
-
-# # 3. 查看处理时间线
-show_process_timeline(msi_filtered)
-
-# # 4. 导出处理历史为表格
-process_history <- export_process_history(msi_filtered, include_details = TRUE)
-print(process_history)
-
-# # 5. 保存处理历史到CSV
-write.csv(process_history, "msi_processing_history.csv", row.names = FALSE)
-
-print()
 
 ## save
 if (!dir.exists("data/output")) dir.create("data/output", recursive = TRUE)
