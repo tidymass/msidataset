@@ -163,16 +163,106 @@ msi_filtered <- filter_msi_dataset_supplementary(
 print(msi_filtered)
 
 ## plot
+
+# EXAMPLE 1
 plot_msi_filtered(
   msi_filtered,           # 筛选后的msi_dataset对象
   variable_id = NULL,     # 变量ID，如"var_1"
-  mz = NULL,              # m/z值，如885.55
-  mz_tolerance = 0.01,    # m/z匹配的容差
+  mz = 885.55,              # m/z值，如885.55
+  mz_tolerance = 0.1,    # m/z匹配的容差
   title = NULL,           # 自定义标题
   color_scale = "viridis",# 颜色方案：viridis、magma、plasma、inferno、cividis
   transform = "none",     # 数据转换：none、log10、sqrt
   add_grid = TRUE         # 是否添加网格线
 )
+
+# BASIC
+p1 <- plot_msi_filtered(msi_filtered, variable_id = "var_1")
+print(p1)
+
+# CUSTOM
+p2 <- plot_msi_filtered(
+  msi_filtered, 
+  mz = 600.5, 
+  color_scale = "magma",
+  transform = "log10",
+  title = "Ion m/z 600.5 Distribution"
+)
+print(p2)
+
+# SAVE PDF
+pdf("ion_distribution.pdf", width = 8, height = 6)
+print(p2)
+dev.off()
+
+# EXAMPLE 2 plot_msi_grid()
+plot_msi_grid(
+  msi_filtered,              # 筛选后的msi_dataset对象
+  variable_ids,              # 要绘制的变量ID向量
+  ncol = 3,                  # 网格列数
+  color_scale = "viridis",   # 所有图的颜色方案
+  transform = "none"         # 所有图的数据转换
+)
+
+# 获取前6个变量ID
+var_info <- variable_info(msi_filtered)
+top_6_vars <- head(var_info$variable_id, 6)
+
+# 创建2x3网格
+plot_msi_grid(msi_filtered, top_6_vars, ncol = 3)
+
+# 自定义参数
+plot_msi_grid(
+  msi_filtered,
+  top_6_vars,
+  ncol = 2,
+  color_scale = "plasma",
+  transform = "log10"
+)
+
+# 保存为PDF
+pdf("ion_grid.pdf", width = 12, height = 8)
+plot_msi_grid(msi_filtered, top_6_vars, ncol = 3)
+dev.off()
+
+# EXAMPLE 3 
+plot_spatial_correlation(
+  msi_filtered,         # 筛选后的msi_dataset对象
+  n_vars = 20,          # 分析的顶部变量数
+  method = "pearson",   # 相关性方法：pearson、spearman、kendall
+  show_labels = FALSE,  # 是否显示标签
+  label_top_n = 5       # 标签的顶部变量数
+)
+
+# 基本用法
+result <- plot_spatial_correlation(msi_filtered)
+
+# 查看X相关性图
+print(result$plot_x)
+
+# 查看Y相关性图
+print(result$plot_y)
+
+# 查看相关性数据
+head(result$data)
+
+# 查看摘要统计
+summary(result)
+
+# 高级用法：Spearman相关性，带标签
+result2 <- plot_spatial_correlation(
+  msi_filtered,
+  n_vars = 50,
+  method = "spearman",
+  show_labels = TRUE,
+  label_top_n = 10
+)
+
+# 保存两个图
+pdf("spatial_correlation.pdf", width = 14, height = 6)
+gridExtra::grid.arrange(result2$plot_x, result2$plot_y, ncol = 2)
+dev.off()
+
 
 
 ## save
