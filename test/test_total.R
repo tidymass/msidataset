@@ -4,10 +4,10 @@
 # Purpose: Full workflow test using real .imzML data via Cardinal.
 #
 # Workflow:
-#   Step 1 : Read .imzML -> Cardinal -> msi_dataset
-#   Step 2 : Add notes
-#   Step 3 : Filter_variables() / filter_pixels()
-#   Step 4 : activate() + process_info
+#   Step 1 : create
+#   Step 2 : convert [Read .imzML -> Cardinal -> msi_dataset]
+#   Step 3 : filter
+#   Step 4 : show
 #   Step 5 : 
 #   Step 6 : 
 #   Step 7 : 
@@ -56,8 +56,8 @@ cardinal_obj_aligned <- Cardinal::peakAlign(
 
 my_msi_full <- convert_cardinal2msi_dataset(
   cardinal_object = cardinal_obj_aligned,
-  sample_name     = "renal_cancer",
-  section_name    = "slice_01",
+  sample_name     = "rcc_1",
+  section_name    = "tumor",
   resolution      = 50,
   matrix_name     = "NEDC"
 )
@@ -135,41 +135,51 @@ show_mz_statistics(my_msi_full)
 params <- recommend_filter_params(my_msi_full)
 
 
-# 1. high freq mz（freq > 0.2）
+# 1. high freq mz (by non-zero count)
 msi_high_freq <- filter_msi_dataset_supplementary(
-  my_msi_full,
-  target = "variable_info",
-  filter_type = "high_frequency",
-  freq_threshold = 0.2
-)
+  my_msi_full, filter_type = 'high_frequency_count', min_pixels = 17)
 
 print(msi_high_freq)
 
 # 2. mz with excessive zeros
 msi_no_zeros <- filter_msi_dataset_supplementary(
-  my_msi_full,
-  target = "variable_info",
-  filter_type = "zero_heavy",
-  zero_threshold = 0.5
-)
+  msi_high_freq, filter_type = 'zero_heavy', zero_threshold = 0.5)
 
 print(msi_no_zeros)
 
-# 3. combined
-msi_filtered <- filter_msi_dataset_supplementary(
-  my_msi_full,
-  target = "variable_info",
-  filter_type = "supplementary",
-  freq_threshold = 0.2,        
-  zero_threshold = 0.5        
+# 3. intensity (> 3%)
+msi_intensity <- filter_msi_dataset(
+  msi_no_zeros, target = "sample_info", filter_type = "intensity",
+  intensity_type = "median", intensity_threshold = 90
 )
+
+print(msi_intensity)
+
+# 4. combined
+msi_filtered <- filter_msi_dataset_supplementary(
+  my_msi_full, filter_type = 'supplementary',
+  min_pixels = 17, zero_threshold = 0.5)
 
 print(msi_filtered)
 
 
+# # 1. 查看处理信息摘要（简洁版）
+show_process_info(msi_filtered, detailed = FALSE, verbose = FALSE)
 
+# # 2. 查看完整的处理信息（推荐）
+show_process_info(msi_filtered, detailed = TRUE, verbose = TRUE)
 
+# # 3. 查看处理时间线
+show_process_timeline(msi_filtered)
 
+# # 4. 导出处理历史为表格
+process_history <- export_process_history(msi_filtered, include_details = TRUE)
+print(process_history)
+
+# # 5. 保存处理历史到CSV
+write.csv(process_history, "msi_processing_history.csv", row.names = FALSE)
+
+print()
 
 ## save
 if (!dir.exists("data/output")) dir.create("data/output", recursive = TRUE)

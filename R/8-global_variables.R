@@ -1,7 +1,15 @@
 #' @title Global Variables for msidataset
 #' @description This file defines global variables to avoid "no visible binding for global variable" notes during R CMD check.
 
+# Define global variables
+msidataset_version <- NULL
+update_date <- NULL
+
 globalVariables(names = c(
+  # Version information
+  "msidataset_version",
+  "update_date",
+  
   # Base Core Variables
   ".", 
   "value", 

@@ -1,5 +1,9 @@
+# Version and date information - extracted from DESCRIPTION file during package build
+msidataset_version <- utils::packageVersion("msidataset")
+update_date <- Sys.Date()
+
 .onAttach <- function(libname, pkgname) {
-  needed <- core[!is_attached(core)]
+  needed <- msidataset_core[!is_attached(msidataset_core)]
   if (length(needed) == 0)
     return()
   

@@ -71,15 +71,23 @@ filter_out_zero_heavy_mz <- function(object, zero_threshold = 0.6) {
   object@expression_data <- new_expr
   object@variable_info <- new_vinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_zero_heavy_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+  # Record in process_info - 改进版本
+  # 记录时间戳和所有详细参数（只添加一次，不重复）
+  process_key <- paste0("step_", length(object@process_info) + 1, "_", 
+                        format(Sys.time(), "%Y%m%d_%H%M%S"))
   parameter <- new(
     Class = "tidymass_parameter",
     pacakge_name = "msidataset",
     function_name = "filter_out_zero_heavy_mz()",
-    parameter = list(zero_threshold = zero_threshold,
-                     num_retained = num_remaining,
-                     num_removed = num_original - num_remaining),
+    parameter = list(
+      zero_threshold = zero_threshold,
+      zero_threshold_percent = sprintf("%.1f%%", zero_threshold * 100),
+      num_original = num_original,
+      num_retained = num_remaining,
+      num_removed = num_original - num_remaining,
+      retention_rate = sprintf("%.2f%%", 100 * num_remaining / num_original),
+      num_pixels = ncol(object@expression_data)
+    ),
     time = Sys.time()
   )
   object@process_info[[process_key]] <- parameter
@@ -167,15 +175,23 @@ filter_high_frequency_mz_by_count <- function(object, min_pixels = NULL) {
   object@expression_data <- new_expr
   object@variable_info <- new_vinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_high_freq_count_", format(Sys.time(), "%Y%m%d_%H%M%S"))
+  # Record in process_info - 改进版本
+  # 记录时间戳和所有详细参数（只添加一次，不重复）
+  process_key <- paste0("step_", length(object@process_info) + 1, "_", 
+                        format(Sys.time(), "%Y%m%d_%H%M%S"))
   parameter <- new(
     Class = "tidymass_parameter",
     pacakge_name = "msidataset",
     function_name = "filter_high_frequency_mz_by_count()",
-    parameter = list(min_pixels = min_pixels,
-                     num_retained = num_remaining,
-                     num_removed = num_original - num_remaining),
+    parameter = list(
+      min_pixels = min_pixels,
+      min_pixels_percent = sprintf("%.1f%%", 100 * min_pixels / ncol(object@expression_data)),
+      num_original = num_original,
+      num_retained = num_remaining,
+      num_removed = num_original - num_remaining,
+      retention_rate = sprintf("%.2f%%", 100 * num_remaining / num_original),
+      total_pixels = ncol(object@expression_data)
+    ),
     time = Sys.time()
   )
   object@process_info[[process_key]] <- parameter

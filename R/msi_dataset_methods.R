@@ -118,20 +118,77 @@ setMethod(
       cat(paste(note_parts, collapse = ", "), "\n")
     }
     
-    ## 5. processing history
+    ## 5. processing history (IMPROVED: show all steps with timestamps and parameters)
     if (length(object@process_info) > 0) {
       cat(crayon::green("5. process_info: "))
       cat(length(object@process_info), "steps\n")
-      # Show last 3 steps
-      steps_to_show <- tail(names(object@process_info), 3)
-      for (step_name in steps_to_show) {
+      
+      # ✅ IMPROVED: Show ALL steps (not just last 3)
+      all_steps <- names(object@process_info)
+      
+      for (step_index in seq_along(all_steps)) {
+        step_name <- all_steps[step_index]
         param <- object@process_info[[step_name]]
+        
+        # Get function name
         func_name <- if (methods::is(param, "tidymass_parameter")) {
           param@function_name
         } else {
           "unknown"
         }
-        cat("  -", func_name, "\n")
+        
+        # ✅ IMPROVED: Get timestamp (YYYY-MM-DD HH:MM:SS format)
+        timestamp <- if (methods::is(param, "tidymass_parameter")) {
+          format(param@time, "%Y-%m-%d %H:%M:%S")
+        } else {
+          "N/A"
+        }
+        
+        # ✅ IMPROVED: Extract key parameters
+        params_summary <- ""
+        if (methods::is(param, "tidymass_parameter") && 
+            length(param@parameter) > 0) {
+          
+          key_params <- c()
+          params <- param@parameter
+          
+          # Retention rate
+          if (!is.null(params$retention_rate)) {
+            key_params <- c(key_params, params$retention_rate)
+          } else if (!is.null(params$num_retained) && !is.null(params$num_removed)) {
+            total <- params$num_retained + params$num_removed
+            if (total > 0) {
+              rate <- sprintf("%.1f%%", 100 * params$num_retained / total)
+              key_params <- c(key_params, rate)
+            }
+          }
+          
+          # Threshold
+          if (!is.null(params$zero_threshold_percent)) {
+            key_params <- c(key_params, sprintf("threshold=%s", params$zero_threshold_percent))
+          } else if (!is.null(params$zero_threshold)) {
+            key_params <- c(key_params, sprintf("threshold=%.1f%%", params$zero_threshold * 100))
+          }
+          
+          # Min pixels
+          if (!is.null(params$min_pixels)) {
+            key_params <- c(key_params, sprintf("min_pixels=%d", params$min_pixels))
+          }
+          
+          # Method
+          if (!is.null(params$method)) {
+            key_params <- c(key_params, sprintf("method=%s", params$method))
+          }
+          
+          # Format parameter summary
+          if (length(key_params) > 0) {
+            params_summary <- paste0(" [", paste(key_params, collapse=", "), "]")
+          }
+        }
+        
+        # ✅ IMPROVED: Output with step number, function name, timestamp, and parameters
+        cat(sprintf("  Step %d: %s\n", step_index, func_name))
+        cat(sprintf("    └─ Time: %s%s\n", timestamp, params_summary))
       }
     }
     
@@ -164,18 +221,18 @@ setMethod(
   "[",
   signature = "msi_dataset",
   function(x, i, j, drop = FALSE) {
-
+    
     if (missing(i)) i <- seq_len(nrow(x@expression_data))
     if (missing(j)) j <- seq_len(ncol(x@expression_data))
-
+    
     new_expr  <- x@expression_data[i, j, drop = FALSE]
     new_vinfo <- x@variable_info[i, , drop = FALSE]
     new_sinfo <- x@sample_info[j, , drop = FALSE]
-
+    
     ## Rebuild notes if needed (keep existing columns only)
     new_snote <- x@sample_info_note
     new_vnote <- x@variable_info_note
-
+    
     new_obj <- new(
       Class              = "msi_dataset",
       expression_data    = as.data.frame(new_expr, check.names = FALSE),
@@ -238,13 +295,13 @@ setMethod("dimnames", "msi_dataset", function(x) {
 #' @export
 
 update_msi_dataset <- function(object) {
-
+  
   ## sync dimnames
   if (nrow(object@variable_info) > 0)
     rownames(object@expression_data) <- object@variable_info$variable_id
   if (nrow(object@sample_info) > 0)
     colnames(object@expression_data) <- object@sample_info$sample_id
-
+  
   ## rebuild notes when stale
   if (nrow(object@sample_info_note) != ncol(object@sample_info) ||
       !all(object@sample_info_note$name == colnames(object@sample_info))) {
@@ -254,7 +311,7 @@ update_msi_dataset <- function(object) {
       check.names = FALSE, stringsAsFactors = FALSE
     )
   }
-
+  
   if (nrow(object@variable_info_note) != ncol(object@variable_info) ||
       !all(object@variable_info_note$name == colnames(object@variable_info))) {
     object@variable_info_note <- data.frame(
@@ -263,7 +320,7 @@ update_msi_dataset <- function(object) {
       check.names = FALSE, stringsAsFactors = FALSE
     )
   }
-
+  
   ## record
   parameter <- new(
     Class         = "tidymass_parameter",
@@ -273,13 +330,13 @@ update_msi_dataset <- function(object) {
     time          = Sys.time()
   )
   object@process_info$update_msi_dataset <- parameter
-
+  
   ## validate
   check_result <- check_msi_dataset_class(object)
   if (!isTRUE(check_result))
     warning("Validation errors after update:\n",
             paste(check_result, collapse = "\n"))
-
+  
   invisible(object)
 }
 
@@ -302,9 +359,9 @@ update_msi_dataset <- function(object) {
 #' @export
 
 activate_msi_dataset <- function(object,
-                                  slot_name = c("expression_data",
-                                                "sample_info",
-                                                "variable_info")) {
+                                 slot_name = c("expression_data",
+                                               "sample_info",
+                                               "variable_info")) {
   slot_name <- match.arg(slot_name)
   object@activated <- slot_name
   invisible(object)
