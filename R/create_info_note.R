@@ -1,7 +1,7 @@
 # ============================================================================
 # Enhanced sample_info_note and variable_info_note Documentation - UPDATED
 # Updated to match new structure:
-# - sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix (8 columns)
+## sample_info core columns: sample_id, x, y, z, subject_id, section_id, resolution, matrix
 # - variable_info: variable_id, mz, ms2 (3 columns)
 # ============================================================================
 
@@ -15,15 +15,15 @@ create_enhanced_sample_info_note <- function(msi_object) {
   
   # Define meanings for standard MSI spatial and metadata columns
   standard_meanings <- list(
-    pixel_id = "Unique pixel identifier. Used to distinguish each individual pixel/sample position in the imaging space.",
-    
-    x = "The X-axis coordinate of the pixel in the imaging space. Usually corresponds to the horizontal position.",
+        x = "The X-axis coordinate of the pixel in the imaging space. Usually corresponds to the horizontal position.",
     
     y = "The Y-axis coordinate of the pixel in the imaging space. Usually corresponds to the vertical position.",
     
     z = "The Z-axis coordinate of the pixel. Represents the depth of a tissue section or different slice layers in a 3D dataset.",
     
-    sample_id = "Unique sample identifier used to distinguish different biological samples (e.g., tissue from different individuals).",
+    sample_id = "Unique sample/pixel identifier used as expression_data column key.",
+
+    subject_id = "Biological subject identifier (individual/patient/animal).",
     
     section_id = "Unique section identifier. If a sample is cut into multiple slices for imaging, this ID distinguishes different slices.",
     
@@ -69,7 +69,7 @@ create_enhanced_variable_info_note <- function(msi_object) {
     
     mz = "Mass-to-charge ratio. The core variable in mass spectrometry data, representing the ratio of an ion's mass to its charge number.",
     
-    ms2 = "MS2 availability indicator (yes or no). Indicates whether tandem mass spectrometry (MS2) fragmentation data is available for this m/z feature."
+    ms2 = "MS2 availability indicator (yes or no)."
   )
   
   # Build note table
@@ -130,7 +130,7 @@ update_msi_notes <- function(msi_object) {
 # SAMPLE_INFO COLUMNS (8 required/common columns):
 # ─────────────────────────────────────────────────
 # 
-# pixel_id (REQUIRED)
+## sample_id (REQUIRED)
 #   Purpose: Unique identifier for each pixel in the imaging space
 #   Type: character
 #   Usage: Column names of expression_data; primary index for pixels
@@ -223,9 +223,9 @@ update_msi_notes <- function(msi_object) {
 # ============================================================================
 
 # 1. sample_info structure updated:
-#    - Added pixel_id as REQUIRED (used for column names of expression_data)
+#    - Added sample_id as REQUIRED (used for column names of expression_data)
 #    - sample_id is now a separate column (not used for column names)
-#    - Total columns: 8 (pixel_id, x, y, z, sample_id, section_id, resolution, matrix)
+#    - Total columns: 8 (sample_id, x, y, z, sample_id, section_id, resolution, matrix)
 #
 # 2. variable_info structure updated:
 #    - Simplified to 3 core columns: variable_id, mz, ms2
@@ -233,7 +233,7 @@ update_msi_notes <- function(msi_object) {
 #    - Removed optional count/freq from standard structure
 #
 # 3. expression_data naming:
-#    - Column names now use pixel_id (not sample_id)
+#    - Column names now use sample_id (not sample_id)
 #    - Row names use variable_id (unchanged)
 #
 # 4. Updated notes to reflect new structure:
