@@ -1,7 +1,7 @@
 # ============================================================================
 # msi_dataset Class Definition and Constructor - UPDATED
 # Updated to match new structure:
-# - sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix
+# - sample_info: sample_id, x, y, z, subject_id, section_id, resolution, matrix
 # - variable_info: variable_id, mz, ms2
 # Author: Xiaoyu Xu <XIAOYU021@e.ntu.edu.sg>
 # ============================================================================
@@ -29,21 +29,27 @@ check_msi_dataset <- function(expression_data,
   if (!("mz" %in% colnames(variable_info)))
     errors <- c(errors, "variable_info must have mz.")
   
+  if (!("ms2" %in% colnames(variable_info)))
+    errors <- c(errors, "variable_info must have ms2.")
+  
   # Required columns in sample_info
-  if (!("pixel_id" %in% colnames(sample_info)))
-    errors <- c(errors, "sample_info must have pixel_id.")
-  
-  if (sum(duplicated(sample_info$pixel_id)) > 0)
-    errors <- c(errors, "pixel_id has duplicated items.")
-  
   if (!("sample_id" %in% colnames(sample_info)))
     errors <- c(errors, "sample_info must have sample_id.")
   
-  if (!("x" %in% colnames(sample_info)))
-    errors <- c(errors, "sample_info must have x.")
+  if (sum(duplicated(sample_info$sample_id)) > 0)
+    errors <- c(errors, "sample_id has duplicated items.")
   
-  if (!("y" %in% colnames(sample_info)))
-    errors <- c(errors, "sample_info must have y.")
+  required_sample_cols <- c(
+    "sample_id", "x", "y", "z", "subject_id", "section_id", "resolution", "matrix"
+  )
+  missing_sample_cols <- setdiff(required_sample_cols, colnames(sample_info))
+  if (length(missing_sample_cols) > 0) {
+    errors <- c(
+      errors,
+      paste0("sample_info missing required columns: ",
+             paste(missing_sample_cols, collapse = ", "))
+    )
+  }
   
   if (ncol(expression_data) != nrow(sample_info))
     errors <- c(errors,
@@ -84,21 +90,27 @@ check_msi_dataset_class <- function(object) {
   if (!("mz" %in% colnames(object@variable_info)))
     errors <- c(errors, "variable_info must have mz.")
   
+  if (!("ms2" %in% colnames(object@variable_info)))
+    errors <- c(errors, "variable_info must have ms2.")
+  
   ## sample_info - Required columns
-  if (!("pixel_id" %in% colnames(object@sample_info)))
-    errors <- c(errors, "sample_info must have pixel_id.")
-  
-  if (sum(duplicated(object@sample_info$pixel_id)) > 0)
-    errors <- c(errors, "pixel_id has duplicated items.")
-  
   if (!("sample_id" %in% colnames(object@sample_info)))
     errors <- c(errors, "sample_info must have sample_id.")
   
-  if (!("x" %in% colnames(object@sample_info)))
-    errors <- c(errors, "sample_info must have x.")
+  if (sum(duplicated(object@sample_info$sample_id)) > 0)
+    errors <- c(errors, "sample_id has duplicated items.")
   
-  if (!("y" %in% colnames(object@sample_info)))
-    errors <- c(errors, "sample_info must have y.")
+  required_sample_cols <- c(
+    "sample_id", "x", "y", "z", "subject_id", "section_id", "resolution", "matrix"
+  )
+  missing_sample_cols <- setdiff(required_sample_cols, colnames(object@sample_info))
+  if (length(missing_sample_cols) > 0) {
+    errors <- c(
+      errors,
+      paste0("sample_info missing required columns: ",
+             paste(missing_sample_cols, collapse = ", "))
+    )
+  }
   
   ## MSI spatial columns (required: x, y; optional: z)
   ## z is optional so we don't check for it here
@@ -122,9 +134,9 @@ check_msi_dataset_class <- function(object) {
   if (ncol(object@expression_data) != nrow(object@sample_info)) {
     errors <- c(errors,
                 "expression_data column number must equal sample_info row number.")
-  } else if (sum(colnames(object@expression_data) != object@sample_info$pixel_id) > 0) {
+  } else if (sum(colnames(object@expression_data) != object@sample_info$sample_id) > 0) {
     errors <- c(errors,
-                "expression_data colnames must equal sample_info$pixel_id.")
+                "expression_data colnames must equal sample_info$sample_id.")
   }
   
   ## expression vs variable
@@ -174,7 +186,7 @@ check_msi_dataset_class <- function(object) {
 #'
 #' @slot expression_data \code{data.frame} or \code{matrix}.
 #'   Rows = variables (m/z features), columns = pixels.
-#'   Column names must match \code{sample_info$pixel_id}.
+#'   Column names must match \code{sample_info$sample_id}.
 #'   Row names must match \code{variable_info$variable_id}.
 #'
 #' @slot ms2_data \code{list} of MS2 spectra objects.
@@ -182,8 +194,9 @@ check_msi_dataset_class <- function(object) {
 #' @slot annotation_table \code{data.frame} of metabolite annotations.
 #'
 #' @slot sample_info \code{data.frame} with one row per pixel.
-#'   Required columns: \code{pixel_id}, \code{x}, \code{y}, \code{sample_id}.
-#'   Optional columns: \code{z}, \code{section_id}, \code{resolution}, \code{matrix}.
+#'   Required columns: \code{sample_id}, \code{x}, \code{y}.
+#'   Optional columns: \code{z}, \code{subject_id}, \code{section_id},
+#'   \code{resolution}, \code{matrix}.
 #'
 #' @slot variable_info \code{data.frame} with one row per m/z feature.
 #'   Required columns: \code{variable_id}, \code{mz}.
@@ -214,7 +227,7 @@ check_msi_dataset_class <- function(object) {
 setClass(
   Class = "msi_dataset",
   representation(
-    expression_data  = "data.frame",
+    expression_data  = "ANY",
     ms2_data         = "list",
     annotation_table = "data.frame",
     sample_info      = "data.frame",
@@ -227,7 +240,7 @@ setClass(
     activated        = "character"
   ),
   prototype(
-    expression_data      = data.frame(),
+    expression_data      = matrix(numeric(0), nrow = 0, ncol = 0),
     ms2_data             = list(),
     annotation_table     = data.frame(),
     sample_info          = data.frame(),
@@ -256,11 +269,12 @@ setClass(
 #' @param expression_data A \code{data.frame} or \code{matrix}.
 #'   Rows are variables (m/z features), columns are pixels.
 #'   Row names must match \code{variable_info$variable_id};
-#'   column names must match \code{sample_info$pixel_id}.
+#'   column names must match \code{sample_info$sample_id}.
 #'
 #' @param sample_info A \code{data.frame} with one row per pixel.
-#'   Must contain: \code{pixel_id}, \code{x}, \code{y}, \code{sample_id}.
-#'   Can optionally contain: \code{z}, \code{section_id}, \code{resolution}, \code{matrix}.
+#'   Must contain: \code{sample_id}, \code{x}, \code{y}.
+#'   Can optionally contain: \code{z}, \code{subject_id}, \code{section_id},
+#'   \code{resolution}, \code{matrix}.
 #'
 #' @param variable_info A \code{data.frame} with one row per m/z feature.
 #'   Must contain: \code{variable_id}, \code{mz}.
@@ -292,6 +306,35 @@ create_msi_dataset <- function(expression_data,
                                variable_info,
                                sample_info_note,
                                variable_info_note) {
+  if ("pixel_id" %in% colnames(sample_info) &&
+      !("sample_id" %in% colnames(sample_info))) {
+    sample_info$sample_id <- sample_info$pixel_id
+  }
+  
+  if (!("z" %in% colnames(sample_info))) {
+    sample_info$z <- 1
+  }
+  if (!("subject_id" %in% colnames(sample_info))) {
+    sample_info$subject_id <- "subject_1"
+  }
+  if (!("section_id" %in% colnames(sample_info))) {
+    sample_info$section_id <- "section_1"
+  }
+  if (!("resolution" %in% colnames(sample_info))) {
+    sample_info$resolution <- NA_real_
+  }
+  if (!("matrix" %in% colnames(sample_info))) {
+    sample_info$matrix <- NA_character_
+  }
+  required_order <- c("sample_id", "x", "y", "z", "subject_id",
+                      "section_id", "resolution", "matrix")
+  remaining_cols <- setdiff(colnames(sample_info), required_order)
+  sample_info <- sample_info[, c(intersect(required_order, colnames(sample_info)),
+                                 remaining_cols), drop = FALSE]
+  
+  if (!("ms2" %in% colnames(variable_info))) {
+    variable_info$ms2 <- "no"
+  }
   
   ## ---- auto-generate notes if missing ----
   if (missing(sample_info_note) || is.null(sample_info_note)) {
@@ -321,14 +364,14 @@ create_msi_dataset <- function(expression_data,
     variable_info_note = variable_info_note
   )
   
-  if (stringr::str_detect(check_result, "^error")) {
+  if (grepl("^error", check_result)) {
     stop(check_result)
   }
   
-  ## ---- coerce to data.frame (preserving rownames) ----
-  old_rn         <- rownames(expression_data)
-  expression_data <- as.data.frame(expression_data, check.names = FALSE)
-  rownames(expression_data) <- old_rn
+  ## ---- keep matrix-like backend, only coerce when needed ----
+  if (is.data.frame(expression_data)) {
+    expression_data <- as.matrix(expression_data)
+  }
   
   sample_info        <- as.data.frame(sample_info,        check.names = FALSE,
                                       stringsAsFactors = FALSE)
@@ -340,9 +383,7 @@ create_msi_dataset <- function(expression_data,
                                       stringsAsFactors = FALSE)
   
   ## ---- ensure dimnames are consistent ----
-  # Use pixel_id for column names (not sample_id)
-  colnames(expression_data) <- sample_info$pixel_id
-  rownames(expression_data) <- variable_info$variable_id
+  dimnames(expression_data) <- list(variable_info$variable_id, sample_info$sample_id)
   
   ## ---- record creation in process_info ----
   process_info <- list()

@@ -1,6 +1,6 @@
 # ============================================================================
 # Accessor Methods for msi_dataset (getters + setters)
-# Updated to use pixel_id instead of sample_id for expression_data column names
+# Updated to use sample_id as the primary pixel identifier
 # Author: Xiaoyu Xu <XIAOYU021@e.ntu.edu.sg>
 # ============================================================================
 
@@ -87,9 +87,11 @@ setMethod("annotation_table", "msi_dataset", function(object) {
 #' @return Updated \code{msi_dataset} object.
 #' @export
 setReplaceMethod("expression_data", "msi_dataset", function(object, value) {
-  value <- as.data.frame(value, check.names = FALSE)
-  rownames(value) <- object@variable_info$variable_id
-  colnames(value) <- object@sample_info$pixel_id  # ✓ UPDATED: use pixel_id
+  if (is.data.frame(value)) {
+    value <- as.matrix(value)
+  }
+  dimnames(value) <- list(object@variable_info$variable_id,
+                          object@sample_info$sample_id)
   object@expression_data <- value
   methods::validObject(object)
   object
@@ -97,11 +99,19 @@ setReplaceMethod("expression_data", "msi_dataset", function(object, value) {
 
 #' Set sample_info
 #' @param object A \code{msi_dataset} object.
-#' @param value A \code{data.frame}; must contain \code{pixel_id}, \code{x},
-#'   \code{y}.
+#' @param value A \code{data.frame}; must contain \code{sample_id}, \code{x},
+#'   \code{y}. Legacy \code{pixel_id} is accepted and mapped to \code{sample_id}.
 #' @return Updated \code{msi_dataset} object.
 #' @export
 setReplaceMethod("sample_info", "msi_dataset", function(object, value) {
+  if ("pixel_id" %in% colnames(value) && !("sample_id" %in% colnames(value))) {
+    value$sample_id <- value$pixel_id
+  }
+  if (!("z" %in% colnames(value))) value$z <- 1
+  if (!("subject_id" %in% colnames(value))) value$subject_id <- "subject_1"
+  if (!("section_id" %in% colnames(value))) value$section_id <- "section_1"
+  if (!("resolution" %in% colnames(value))) value$resolution <- NA_real_
+  if (!("matrix" %in% colnames(value))) value$matrix <- NA_character_
   object@sample_info <- as.data.frame(value, stringsAsFactors = FALSE,
                                       check.names = FALSE)
   # rebuild note if dimension changed
@@ -112,7 +122,7 @@ setReplaceMethod("sample_info", "msi_dataset", function(object, value) {
       check.names = FALSE, stringsAsFactors = FALSE
     )
   }
-  colnames(object@expression_data) <- object@sample_info$pixel_id  # ✓ UPDATED: use pixel_id
+  colnames(object@expression_data) <- object@sample_info$sample_id
   methods::validObject(object)
   object
 })
@@ -123,6 +133,9 @@ setReplaceMethod("sample_info", "msi_dataset", function(object, value) {
 #' @return Updated \code{msi_dataset} object.
 #' @export
 setReplaceMethod("variable_info", "msi_dataset", function(object, value) {
+  if (!("ms2" %in% colnames(value))) {
+    value$ms2 <- "no"
+  }
   object@variable_info <- as.data.frame(value, stringsAsFactors = FALSE,
                                         check.names = FALSE)
   if (nrow(object@variable_info_note) != ncol(object@variable_info)) {
@@ -250,20 +263,18 @@ setMethod("pixel_info_note", "msi_dataset", function(object) {
 # Spatial convenience accessors
 # ---------------------------------------------------------------------------
 
-#' Get spatial coordinates (pixel_id, x, y, z) from a msi_dataset
+#' Get spatial coordinates (sample_id, x, y, z) from a msi_dataset
 #'
 #' @param object A \code{msi_dataset} object.
-#' @return A \code{data.frame} with columns \code{pixel_id}, \code{sample_id},
-#'   \code{x}, \code{y}, \code{z}.
+#' @return A \code{data.frame} with columns \code{sample_id}, \code{x},
+#'   \code{y}, \code{z}.
 #' @export
 setMethod("get_spatial_coords", "msi_dataset", function(object) {
-  # ✓ UPDATED: use pixel_id instead of sample_id as required column
-  required_cols <- c("pixel_id", "x", "y")
+  required_cols <- c("sample_id", "x", "y")
   if (!all(required_cols %in% colnames(object@sample_info)))
-    stop("sample_info must contain: pixel_id, x, y.")
+    stop("sample_info must contain: sample_id, x, y.")
   
-  # Return pixel_id, sample_id, x, y, z (if available)
-  out <- object@sample_info[, c("pixel_id", "sample_id", "x", "y"), drop = FALSE]
+  out <- object@sample_info[, c("sample_id", "x", "y"), drop = FALSE]
   out$z <- if ("z" %in% colnames(object@sample_info)) object@sample_info$z else 1L
   out
 })

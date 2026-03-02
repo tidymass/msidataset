@@ -84,12 +84,11 @@ setMethod(
         ncol(object@sample_info), "data.frame]\n")
     np <- nrow(object@sample_info)
     
-    # ✓ UPDATED: Show pixel_id instead of sample_id
     pid <- if (np <= 5) {
-      object@sample_info$pixel_id
+      object@sample_info$sample_id
     } else {
-      c(head(object@sample_info$pixel_id, 3), "...",
-        tail(object@sample_info$pixel_id, 2))
+      c(head(object@sample_info$sample_id, 3), "...",
+        tail(object@sample_info$sample_id, 2))
     }
     cat(np, "pixels:", paste(pid, collapse = " "), "\n")
     
@@ -235,7 +234,7 @@ setMethod(
     
     new_obj <- new(
       Class              = "msi_dataset",
-      expression_data    = as.data.frame(new_expr, check.names = FALSE),
+      expression_data    = new_expr,
       ms2_data           = x@ms2_data,
       annotation_table   = x@annotation_table,
       sample_info        = new_sinfo,

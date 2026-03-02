@@ -9,8 +9,8 @@
 \arguments{
 \item{object}{A \code{msi_dataset} object.}
 
-\item{value}{A \code{data.frame}; must contain \code{pixel_id}, \code{x},
-\code{y}.}
+\item{value}{A \code{data.frame}; must contain \code{sample_id}, \code{x},
+\code{y}. Legacy \code{pixel_id} is accepted and mapped to \code{sample_id}.}
 }
 \value{
 Updated \code{msi_dataset} object.

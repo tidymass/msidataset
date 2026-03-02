@@ -14,7 +14,7 @@ pixels are treated as "samples" and stored in \code{sample_info}.
 \describe{
 \item{\code{expression_data}}{\code{data.frame} or \code{matrix}.
 Rows = variables (m/z features), columns = pixels.
-Column names must match \code{sample_info$pixel_id}.
+Column names must match \code{sample_info$sample_id}.
 Row names must match \code{variable_info$variable_id}.}
 
 \item{\code{ms2_data}}{\code{list} of MS2 spectra objects.}
@@ -22,8 +22,9 @@ Row names must match \code{variable_info$variable_id}.}
 \item{\code{annotation_table}}{\code{data.frame} of metabolite annotations.}
 
 \item{\code{sample_info}}{\code{data.frame} with one row per pixel.
-Required columns: \code{pixel_id}, \code{x}, \code{y}, \code{sample_id}.
-Optional columns: \code{z}, \code{section_id}, \code{resolution}, \code{matrix}.}
+Required columns: \code{sample_id}, \code{x}, \code{y}.
+Optional columns: \code{z}, \code{subject_id}, \code{section_id},
+\code{resolution}, \code{matrix}.}
 
 \item{\code{variable_info}}{\code{data.frame} with one row per m/z feature.
 Required columns: \code{variable_id}, \code{mz}.

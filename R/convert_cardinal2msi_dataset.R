@@ -1,7 +1,7 @@
 #' @title Convert Cardinal Object to msi_dataset
 #' @description 
 #' Convert Cardinal object to msi_dataset with new structure:
-#' - sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix
+#' - sample_info: sample_id, x, y, z, subject_id, section_id, resolution, matrix
 #' - variable_info: variable_id, mz, ms2
 #'
 #' @param cardinal_object Cardinal object
@@ -12,7 +12,7 @@
 #' @export
 
 convert_cardinal2msi_dataset <- function(cardinal_object,
-                                         sample_name = "sample_1",
+                                         sample_name = "subject_1",
                                          section_name = "section_1",
                                          resolution = NA,
                                          matrix_name = NA) {
@@ -33,12 +33,11 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   # Extract pixel IDs (x, y coordinates)
   pixel_ids <- rownames(Cardinal::pData(cardinal_object))
   
-  # Create pixel_id column
+  # Create sample_id column (pixel-level unique id)
   if (is.null(pixel_ids) || all(pixel_ids == seq_len(nrow(sample_info)))) {
-    # If no meaningful pixel IDs, create them
-    sample_info$pixel_id <- paste0("pixel_", seq_len(nrow(sample_info)))
+    sample_info$sample_id <- paste0("pixel_", seq_len(nrow(sample_info)))
   } else {
-    sample_info$pixel_id <- pixel_ids
+    sample_info$sample_id <- pixel_ids
   }
   
   # Ensure x and y columns exist
@@ -65,7 +64,7 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   }
   
   # Add metadata columns
-  sample_info$sample_id <- sample_name
+  sample_info$subject_id <- sample_name
   sample_info$section_id <- section_name
   
   if (!is.na(resolution)) {
@@ -77,7 +76,7 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   }
   
   # Reorder columns to match expected structure
-  expected_cols <- c("pixel_id", "x", "y", "z", "sample_id", "section_id", 
+  expected_cols <- c("sample_id", "x", "y", "z", "subject_id", "section_id",
                      "resolution", "matrix")
   existing_cols <- intersect(expected_cols, colnames(sample_info))
   
@@ -108,9 +107,9 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   } else {
     # Convert to yes/no if it's boolean
     if (is.logical(variable_info$ms2)) {
-      variable_info$ms2 <- ifelse(variable_info$ms2, "yes", "no")
+      variable_info$ms2 <- ifelse(variable_info$ms2, "Yes", "no")
     } else if (is.numeric(variable_info$ms2)) {
-      variable_info$ms2 <- ifelse(variable_info$ms2 > 0, "yes", "no")
+      variable_info$ms2 <- ifelse(variable_info$ms2 > 0, "Yes", "no")
     }
     # Otherwise assume it's already yes/no character
   }
@@ -121,7 +120,7 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   # 5. Set Expression Data Dimensions
   cat(crayon::blue("Setting expression data dimensions...\n"))
   rownames(expression_data) <- as.character(variable_info$variable_id)
-  colnames(expression_data) <- as.character(sample_info$pixel_id)
+  colnames(expression_data) <- as.character(sample_info$sample_id)
   
   # 6. Create msi_dataset Object
   cat(crayon::blue("Creating msi_dataset object...\n"))

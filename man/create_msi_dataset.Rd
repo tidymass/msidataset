@@ -16,11 +16,12 @@ create_msi_dataset(
 \item{expression_data}{A \code{data.frame} or \code{matrix}.
 Rows are variables (m/z features), columns are pixels.
 Row names must match \code{variable_info$variable_id};
-column names must match \code{sample_info$pixel_id}.}
+column names must match \code{sample_info$sample_id}.}
 
 \item{sample_info}{A \code{data.frame} with one row per pixel.
-Must contain: \code{pixel_id}, \code{x}, \code{y}, \code{sample_id}.
-Can optionally contain: \code{z}, \code{section_id}, \code{resolution}, \code{matrix}.}
+Must contain: \code{sample_id}, \code{x}, \code{y}.
+Can optionally contain: \code{z}, \code{subject_id}, \code{section_id},
+\code{resolution}, \code{matrix}.}
 
 \item{variable_info}{A \code{data.frame} with one row per m/z feature.
 Must contain: \code{variable_id}, \code{mz}.

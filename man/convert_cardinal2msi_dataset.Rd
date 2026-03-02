@@ -6,7 +6,7 @@
 \usage{
 convert_cardinal2msi_dataset(
   cardinal_object,
-  sample_name = "sample_1",
+  sample_name = "subject_1",
   section_name = "section_1",
   resolution = NA,
   matrix_name = NA
@@ -26,7 +26,7 @@ convert_cardinal2msi_dataset(
 \description{
 Convert Cardinal object to msi_dataset with new structure:
 \itemize{
-\item sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix
+\item sample_info: sample_id, x, y, z, subject_id, section_id, resolution, matrix
 \item variable_info: variable_id, mz, ms2
 }
 }

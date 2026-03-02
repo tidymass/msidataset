@@ -1,7 +1,7 @@
 # ============================================================================
 # Enhanced sample_info_note and variable_info_note Documentation - UPDATED
 # Updated to match new structure:
-# - sample_info: pixel_id, x, y, z, sample_id, section_id, resolution, matrix (8 columns)
+# - sample_info: sample_id, x, y, z, subject_id, section_id, resolution, matrix (8 columns)
 # - variable_info: variable_id, mz, ms2 (3 columns)
 # ============================================================================
 
@@ -15,15 +15,15 @@ create_enhanced_sample_info_note <- function(msi_object) {
   
   # Define meanings for standard MSI spatial and metadata columns
   standard_meanings <- list(
-    pixel_id = "Unique pixel identifier. Used to distinguish each individual pixel/sample position in the imaging space.",
-    
     x = "The X-axis coordinate of the pixel in the imaging space. Usually corresponds to the horizontal position.",
     
     y = "The Y-axis coordinate of the pixel in the imaging space. Usually corresponds to the vertical position.",
     
     z = "The Z-axis coordinate of the pixel. Represents the depth of a tissue section or different slice layers in a 3D dataset.",
     
-    sample_id = "Unique sample identifier used to distinguish different biological samples (e.g., tissue from different individuals).",
+    sample_id = "Unique pixel identifier in the image (one id per pixel).",
+    
+    subject_id = "Unique identifier for the biological sample/subject.",
     
     section_id = "Unique section identifier. If a sample is cut into multiple slices for imaging, this ID distinguishes different slices.",
     

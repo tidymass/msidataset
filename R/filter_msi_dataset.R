@@ -165,7 +165,7 @@ filter_spatial <- function(object, args) {
     }
   }
   
-  keep_ids <- object@sample_info$pixel_id[keep_idx]
+  keep_ids <- object@sample_info$sample_id[keep_idx]
   
   cat(sprintf("  Spatial bounds: x[%.1f-%.1f], y[%.1f-%.1f]\n",
               x_min, x_max, y_min, y_max))
@@ -222,7 +222,7 @@ filter_by_section <- function(object, args) {
   }
   
   keep_idx <- object@sample_info$section_id %in% unlist(section_ids)
-  keep_ids <- object@sample_info$pixel_id[keep_idx]
+  keep_ids <- object@sample_info$sample_id[keep_idx]
   
   cat(sprintf("  Sections: %s\n", paste(unlist(section_ids), collapse = ", ")))
   cat(sprintf("  Pixels remaining: %d / %d (%.1f%%)\n",
@@ -269,7 +269,7 @@ filter_by_run <- function(object, args) {
   }
   
   keep_idx <- object@sample_info$run %in% run_ids
-  keep_ids <- object@sample_info$pixel_id[keep_idx]
+  keep_ids <- object@sample_info$sample_id[keep_idx]
   
   cat(sprintf("  Runs: %s\n", paste(run_ids, collapse = ", ")))
   cat(sprintf("  Pixels remaining: %d / %d (%.1f%%)\n",
@@ -318,7 +318,7 @@ filter_by_intensity <- function(object, args) {
   }
   
   keep_idx <- intensities >= intensity_threshold
-  keep_ids <- object@sample_info$pixel_id[keep_idx]
+  keep_ids <- object@sample_info$sample_id[keep_idx]
   
   cat(sprintf("  Intensity type: %s\n", intensity_type))
   cat(sprintf("  Threshold: >= %.2f\n", intensity_threshold))
@@ -412,7 +412,7 @@ filter_by_custom_function <- function(object, args) {
     filter_func(object@expression_data[, i])
   })
   
-  keep_ids <- object@sample_info$pixel_id[keep_idx]
+  keep_ids <- object@sample_info$sample_id[keep_idx]
   
   cat(sprintf("  Custom function applied\n"))
   cat(sprintf("  Pixels remaining: %d / %d (%.1f%%)\n",
