@@ -8,7 +8,11 @@ roi_visualize(
   object,
   type = c("rectangle", "polygon", "freehand"),
   roi,
-  plot = TRUE
+  plot = TRUE,
+  save_roi = FALSE,
+  roi_id = NULL,
+  roi_name = roi_id,
+  overwrite = FALSE
 )
 }
 \arguments{
@@ -19,6 +23,14 @@ roi_visualize(
 \item{roi}{List describing ROI coordinates.}
 
 \item{plot}{Logical.}
+
+\item{save_roi}{Save selected ROI into object ROI subsystem.}
+
+\item{roi_id}{ROI identifier used when \code{save_roi = TRUE}.}
+
+\item{roi_name}{ROI display name.}
+
+\item{overwrite}{Overwrite an existing ROI with the same id.}
 }
 \value{
 Selected sample_info rows.

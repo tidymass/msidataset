@@ -116,10 +116,19 @@ setMethod(
       if (has_vinfo_note) note_parts <- c(note_parts, "variable_info_note")
       cat(paste(note_parts, collapse = ", "), "\n")
     }
+
+    process_label <- "5"
+    roi_summary <- try(list_roi(object), silent = TRUE)
+    if (!inherits(roi_summary, "try-error") && nrow(roi_summary) > 0) {
+      cat(crayon::green("5. roi: "))
+      cat(nrow(roi_summary), "ROI(s), ",
+          sum(roi_summary$n_pixels), "pixel-memberships\n", sep = "")
+      process_label <- "6"
+    }
     
-    ## 5. processing history (IMPROVED: show all steps with timestamps and parameters)
+    ## processing history
     if (length(object@process_info) > 0) {
-      cat(crayon::green("5. process_info: "))
+      cat(crayon::green(paste0(process_label, ". process_info: ")))
       cat(length(object@process_info), "steps\n")
       
       # ✅ IMPROVED: Show ALL steps (not just last 3)
@@ -294,41 +303,35 @@ setMethod("dimnames", "msi_dataset", function(x) {
 #' @export
 
 update_msi_dataset <- function(object) {
-  
-  ## sync dimnames
-  if (nrow(object@variable_info) > 0)
-    rownames(object@expression_data) <- object@variable_info$variable_id
-  if (nrow(object@sample_info) > 0)
-    colnames(object@expression_data) <- object@sample_info$sample_id
-  
-  ## rebuild notes when stale
-  if (nrow(object@sample_info_note) != ncol(object@sample_info) ||
-      !all(object@sample_info_note$name == colnames(object@sample_info))) {
-    object@sample_info_note <- data.frame(
-      name    = colnames(object@sample_info),
-      meaning = colnames(object@sample_info),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
+  if (!methods::is(object, "msi_dataset")) {
+    stop("object must be a msi_dataset.")
   }
+
+  sample_info <- .normalize_sample_info(object@sample_info)
+  variable_info <- .normalize_variable_info(object@variable_info)
+  expression_data <- object@expression_data
+
+  intersect_sample_id <- intersect(sample_info$sample_id, colnames(expression_data))
+  intersect_variable_id <- intersect(variable_info$variable_id, rownames(expression_data))
+
+  expression_data <- expression_data[intersect_variable_id, intersect_sample_id, drop = FALSE]
+  sample_info <- sample_info[match(intersect_sample_id, sample_info$sample_id), , drop = FALSE]
+  variable_info <- variable_info[match(intersect_variable_id, variable_info$variable_id), , drop = FALSE]
+
+  object@sample_info <- sample_info
+  object@variable_info <- variable_info
+  object@expression_data <- expression_data
   
-  if (nrow(object@variable_info_note) != ncol(object@variable_info) ||
-      !all(object@variable_info_note$name == colnames(object@variable_info))) {
-    object@variable_info_note <- data.frame(
-      name    = colnames(object@variable_info),
-      meaning = colnames(object@variable_info),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
-  }
+  object@sample_info_note <- .sync_info_note(object@sample_info_note,
+                                             object@sample_info)
+  object@variable_info_note <- .sync_info_note(object@variable_info_note,
+                                               object@variable_info)
   
-  ## record
-  parameter <- new(
-    Class         = "tidymass_parameter",
-    pacakge_name  = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "update_msi_dataset()",
-    parameter     = list("no" = "no"),
-    time          = Sys.time()
+    parameter = list(no = "no")
   )
-  object@process_info$update_msi_dataset <- parameter
   
   ## validate
   check_result <- check_msi_dataset_class(object)
@@ -336,32 +339,5 @@ update_msi_dataset <- function(object) {
     warning("Validation errors after update:\n",
             paste(check_result, collapse = "\n"))
   
-  invisible(object)
-}
-
-
-# ---------------------------------------------------------------------------
-# activate() — switch the "active" slot (mirrors massdataset)
-# ---------------------------------------------------------------------------
-
-#' Activate a slot for default operations
-#'
-#' @description
-#' Sets \code{object@activated} to one of \code{"expression_data"},
-#' \code{"sample_info"}, or \code{"variable_info"}, controlling the
-#' default target of \code{dplyr::filter()}, \code{mutate()}, etc.
-#'
-#' @param object A \code{msi_dataset} object.
-#' @param slot_name One of \code{"expression_data"}, \code{"sample_info"},
-#'   \code{"variable_info"}.
-#' @return The modified \code{msi_dataset} object (invisibly).
-#' @export
-
-activate_msi_dataset <- function(object,
-                                 slot_name = c("expression_data",
-                                               "sample_info",
-                                               "variable_info")) {
-  slot_name <- match.arg(slot_name)
-  object@activated <- slot_name
   invisible(object)
 }

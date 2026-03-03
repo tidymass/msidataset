@@ -10,60 +10,108 @@
 # Internal pre-check helper (called BEFORE object construction)
 # ---------------------------------------------------------------------------
 
+.normalize_sample_info <- function(sample_info) {
+  if ("pixel_id" %in% colnames(sample_info) &&
+      !("sample_id" %in% colnames(sample_info))) {
+    sample_info$sample_id <- sample_info$pixel_id
+  }
+  if (!("z" %in% colnames(sample_info))) {
+    sample_info$z <- 1
+  }
+  if (!("subject_id" %in% colnames(sample_info))) {
+    sample_info$subject_id <- "subject_1"
+  }
+  if (!("section_id" %in% colnames(sample_info))) {
+    sample_info$section_id <- "section_1"
+  }
+  if (!("resolution" %in% colnames(sample_info))) {
+    sample_info$resolution <- NA_real_
+  }
+  if (!("matrix" %in% colnames(sample_info))) {
+    sample_info$matrix <- NA_character_
+  }
+
+  required_order <- c("sample_id", "x", "y", "z", "subject_id",
+                      "section_id", "resolution", "matrix")
+  remaining_cols <- setdiff(colnames(sample_info), required_order)
+  sample_info[, c(intersect(required_order, colnames(sample_info)),
+                  remaining_cols), drop = FALSE]
+}
+
+.normalize_variable_info <- function(variable_info) {
+  if (!("ms2" %in% colnames(variable_info))) {
+    variable_info$ms2 <- "no"
+  }
+  variable_info
+}
+
 #' @keywords internal
 check_msi_dataset <- function(expression_data,
                               sample_info,
                               variable_info,
                               sample_info_note,
                               variable_info_note) {
-  
   errors <- character()
-  
-  # Required columns in variable_info
-  if (!("variable_id" %in% colnames(variable_info)))
-    errors <- c(errors, "variable_info must have variable_id.")
-  
-  if (sum(duplicated(variable_info$variable_id)) > 0)
-    errors <- c(errors, "variable_id has duplicated items.")
-  
-  if (!("mz" %in% colnames(variable_info)))
-    errors <- c(errors, "variable_info must have mz.")
-  
-  if (!("ms2" %in% colnames(variable_info)))
-    errors <- c(errors, "variable_info must have ms2.")
-  
-  # Required columns in sample_info
-  if (!("sample_id" %in% colnames(sample_info)))
-    errors <- c(errors, "sample_info must have sample_id.")
-  
-  if (sum(duplicated(sample_info$sample_id)) > 0)
-    errors <- c(errors, "sample_id has duplicated items.")
-  
-  required_sample_cols <- c(
-    "sample_id", "x", "y", "z", "subject_id", "section_id", "resolution", "matrix"
+
+  sample_info <- as.data.frame(sample_info, check.names = FALSE, stringsAsFactors = FALSE)
+  variable_info <- as.data.frame(variable_info, check.names = FALSE, stringsAsFactors = FALSE)
+
+  if (!is.data.frame(expression_data) && !is.matrix(expression_data)) {
+    errors <- c(errors, "expression_data must be a data.frame or matrix.")
+  }
+  expression_df <- as.data.frame(expression_data, check.names = FALSE, stringsAsFactors = FALSE)
+
+  # Reuse massdataset core checks where possible.
+  sample_info_md <- sample_info
+  sample_info_note_md <- sample_info_note
+  if ("sample_id" %in% colnames(sample_info_md) && !("class" %in% colnames(sample_info_md))) {
+    sample_info_md$class <- "MSI_PIXEL"
+    if (!missing(sample_info_note) && !is.null(sample_info_note)) {
+      sample_info_note_md <- rbind(
+        sample_info_note_md,
+        data.frame(
+          name = "class",
+          meaning = "Temporary class column for massdataset-compatible validation.",
+          check.names = FALSE,
+          stringsAsFactors = FALSE
+        )
+      )
+    }
+  }
+  md_result <- massdataset::check_mass_dataset(
+    expression_data = expression_df,
+    sample_info = sample_info_md,
+    variable_info = variable_info,
+    sample_info_note = sample_info_note_md,
+    variable_info_note = variable_info_note
   )
+  if (!identical(md_result, "all good.")) {
+    errors <- c(errors, sub("^error:\\s*", "", md_result))
+  }
+
+  if (!("mz" %in% colnames(variable_info))) {
+    errors <- c(errors, "variable_info must have mz.")
+  }
+
+  required_sample_cols <- c("sample_id", "x", "y")
   missing_sample_cols <- setdiff(required_sample_cols, colnames(sample_info))
   if (length(missing_sample_cols) > 0) {
-    errors <- c(
-      errors,
-      paste0("sample_info missing required columns: ",
-             paste(missing_sample_cols, collapse = ", "))
-    )
+    errors <- c(errors,
+                paste0("sample_info missing required columns: ",
+                       paste(missing_sample_cols, collapse = ", ")))
   }
-  
-  if (ncol(expression_data) != nrow(sample_info))
-    errors <- c(errors,
-                "expression_data column number must equal sample_info row number.")
-  
-  if (nrow(expression_data) != nrow(variable_info))
-    errors <- c(errors,
-                "expression_data row number must equal variable_info row number.")
-  
+
+  if ("x" %in% colnames(sample_info) && !is.numeric(sample_info$x)) {
+    errors <- c(errors, "sample_info$x must be numeric.")
+  }
+  if ("y" %in% colnames(sample_info) && !is.numeric(sample_info$y)) {
+    errors <- c(errors, "sample_info$y must be numeric.")
+  }
+
   if (length(errors) > 0) {
-    return(paste("error:", paste(errors, collapse = "; ")))
+    return(paste0("error: ", paste(unique(errors), collapse = "; ")))
   }
-  
-  return("pass")
+  "all good."
 }
 
 
@@ -77,99 +125,34 @@ check_msi_dataset <- function(expression_data,
 #' @return \code{TRUE} if valid, otherwise a character vector of error messages.
 #' @export
 check_msi_dataset_class <- function(object) {
-  
-  errors <- character()
-  
-  ## variable_info - Required columns
-  if (!("variable_id" %in% colnames(object@variable_info)))
-    errors <- c(errors, "variable_info must have variable_id.")
-  
-  if (sum(duplicated(object@variable_info$variable_id)) > 0)
-    errors <- c(errors, "variable_id has duplicated items.")
-  
-  if (!("mz" %in% colnames(object@variable_info)))
-    errors <- c(errors, "variable_info must have mz.")
-  
-  if (!("ms2" %in% colnames(object@variable_info)))
-    errors <- c(errors, "variable_info must have ms2.")
-  
-  ## sample_info - Required columns
-  if (!("sample_id" %in% colnames(object@sample_info)))
-    errors <- c(errors, "sample_info must have sample_id.")
-  
-  if (sum(duplicated(object@sample_info$sample_id)) > 0)
-    errors <- c(errors, "sample_id has duplicated items.")
-  
-  required_sample_cols <- c(
-    "sample_id", "x", "y", "z", "subject_id", "section_id", "resolution", "matrix"
+  check_result <- check_msi_dataset(
+    expression_data = object@expression_data,
+    sample_info = object@sample_info,
+    variable_info = object@variable_info,
+    sample_info_note = object@sample_info_note,
+    variable_info_note = object@variable_info_note
   )
-  missing_sample_cols <- setdiff(required_sample_cols, colnames(object@sample_info))
-  if (length(missing_sample_cols) > 0) {
+  errors <- character()
+  if (!identical(check_result, "all good.")) {
     errors <- c(
       errors,
-      paste0("sample_info missing required columns: ",
-             paste(missing_sample_cols, collapse = ", "))
+      unlist(strsplit(sub("^error:\\s*", "", check_result), ";\\s*"),
+             use.names = FALSE)
     )
   }
-  
-  ## MSI spatial columns (required: x, y; optional: z)
-  ## z is optional so we don't check for it here
-  
-  ## note tables
-  if (nrow(object@sample_info_note) > 0) {
-    if (!("name" %in% colnames(object@sample_info_note)))
-      errors <- c(errors, "sample_info_note must have column: name.")
-    if (!("meaning" %in% colnames(object@sample_info_note)))
-      errors <- c(errors, "sample_info_note must have column: meaning.")
+
+  roi_check <- try(.validate_roi_integrity(object), silent = TRUE)
+  if (inherits(roi_check, "try-error")) {
+    errors <- c(errors, as.character(roi_check))
+  } else if (!isTRUE(roi_check)) {
+    errors <- c(errors, roi_check)
   }
-  
-  if (nrow(object@variable_info_note) > 0) {
-    if (!("name" %in% colnames(object@variable_info_note)))
-      errors <- c(errors, "variable_info_note must have column: name.")
-    if (!("meaning" %in% colnames(object@variable_info_note)))
-      errors <- c(errors, "variable_info_note must have column: meaning.")
+
+  if (length(errors) == 0) {
+    TRUE
+  } else {
+    unique(errors)
   }
-  
-  ## expression vs sample
-  if (ncol(object@expression_data) != nrow(object@sample_info)) {
-    errors <- c(errors,
-                "expression_data column number must equal sample_info row number.")
-  } else if (sum(colnames(object@expression_data) != object@sample_info$sample_id) > 0) {
-    errors <- c(errors,
-                "expression_data colnames must equal sample_info$sample_id.")
-  }
-  
-  ## expression vs variable
-  if (nrow(object@expression_data) != nrow(object@variable_info)) {
-    errors <- c(errors,
-                "expression_data row number must equal variable_info row number.")
-  } else if (sum(rownames(object@expression_data) != object@variable_info$variable_id) > 0) {
-    errors <- c(errors,
-                "expression_data rownames must equal variable_info$variable_id.")
-  }
-  
-  ## note consistency
-  if (nrow(object@sample_info_note) > 0) {
-    if (ncol(object@sample_info) != nrow(object@sample_info_note)) {
-      errors <- c(errors,
-                  "sample_info column number must equal sample_info_note row number.")
-    } else if (sum(colnames(object@sample_info) != object@sample_info_note$name) > 0) {
-      errors <- c(errors,
-                  "sample_info colnames must equal sample_info_note$name.")
-    }
-  }
-  
-  if (nrow(object@variable_info_note) > 0) {
-    if (ncol(object@variable_info) != nrow(object@variable_info_note)) {
-      errors <- c(errors,
-                  "variable_info column number must equal variable_info_note row number.")
-    } else if (sum(colnames(object@variable_info) != object@variable_info_note$name) > 0) {
-      errors <- c(errors,
-                  "variable_info colnames must equal variable_info_note$name.")
-    }
-  }
-  
-  if (length(errors) == 0) TRUE else errors
 }
 
 
@@ -212,6 +195,7 @@ check_msi_dataset_class <- function(object) {
 #'   recording processing history.
 #'
 #' @slot other_files \code{list} for miscellaneous attached files.
+#'   ROI is stored as \code{other_files$roi} using \code{msi_roi_set}.
 #'
 #' @slot version \code{character} package version used to create the object.
 #'
@@ -306,54 +290,19 @@ create_msi_dataset <- function(expression_data,
                                variable_info,
                                sample_info_note,
                                variable_info_note) {
-  if ("pixel_id" %in% colnames(sample_info) &&
-      !("sample_id" %in% colnames(sample_info))) {
-    sample_info$sample_id <- sample_info$pixel_id
+  if (missing(sample_info_note)) {
+    sample_info_note <- NULL
   }
-  
-  if (!("z" %in% colnames(sample_info))) {
-    sample_info$z <- 1
+  if (missing(variable_info_note)) {
+    variable_info_note <- NULL
   }
-  if (!("subject_id" %in% colnames(sample_info))) {
-    sample_info$subject_id <- "subject_1"
-  }
-  if (!("section_id" %in% colnames(sample_info))) {
-    sample_info$section_id <- "section_1"
-  }
-  if (!("resolution" %in% colnames(sample_info))) {
-    sample_info$resolution <- NA_real_
-  }
-  if (!("matrix" %in% colnames(sample_info))) {
-    sample_info$matrix <- NA_character_
-  }
-  required_order <- c("sample_id", "x", "y", "z", "subject_id",
-                      "section_id", "resolution", "matrix")
-  remaining_cols <- setdiff(colnames(sample_info), required_order)
-  sample_info <- sample_info[, c(intersect(required_order, colnames(sample_info)),
-                                 remaining_cols), drop = FALSE]
-  
-  if (!("ms2" %in% colnames(variable_info))) {
-    variable_info$ms2 <- "no"
-  }
+
+  sample_info <- .normalize_sample_info(sample_info)
+  variable_info <- .normalize_variable_info(variable_info)
   
   ## ---- auto-generate notes if missing ----
-  if (missing(sample_info_note) || is.null(sample_info_note)) {
-    sample_info_note <- data.frame(
-      name    = colnames(sample_info),
-      meaning = colnames(sample_info),
-      check.names = FALSE,
-      stringsAsFactors = FALSE
-    )
-  }
-  
-  if (missing(variable_info_note) || is.null(variable_info_note)) {
-    variable_info_note <- data.frame(
-      name    = colnames(variable_info),
-      meaning = colnames(variable_info),
-      check.names = FALSE,
-      stringsAsFactors = FALSE
-    )
-  }
+  sample_info_note <- .sync_info_note(sample_info_note, sample_info)
+  variable_info_note <- .sync_info_note(variable_info_note, variable_info)
   
   ## ---- pre-construction check ----
   check_result <- check_msi_dataset(
@@ -364,7 +313,7 @@ create_msi_dataset <- function(expression_data,
     variable_info_note = variable_info_note
   )
   
-  if (grepl("^error", check_result)) {
+  if (!identical(check_result, "all good.")) {
     stop(check_result)
   }
   
@@ -385,17 +334,6 @@ create_msi_dataset <- function(expression_data,
   ## ---- ensure dimnames are consistent ----
   dimnames(expression_data) <- list(variable_info$variable_id, sample_info$sample_id)
   
-  ## ---- record creation in process_info ----
-  process_info <- list()
-  parameter <- new(
-    Class         = "tidymass_parameter",
-    pacakge_name  = "msidataset",
-    function_name = "create_msi_dataset()",
-    parameter     = list("no" = "no"),
-    time          = Sys.time()
-  )
-  process_info$create_msi_dataset <- parameter
-  
   ## ---- construct S4 object ----
   object <- new(
     Class              = "msi_dataset",
@@ -406,7 +344,7 @@ create_msi_dataset <- function(expression_data,
     variable_info      = variable_info,
     sample_info_note   = sample_info_note,
     variable_info_note = variable_info_note,
-    process_info       = process_info,
+    process_info       = list(),
     other_files        = list(),
     version            = tryCatch(
       as.character(utils::packageVersion("msidataset")),
@@ -414,6 +352,11 @@ create_msi_dataset <- function(expression_data,
     ),
     activated          = "expression_data"
   )
-  
+  object <- add_process_log(
+    object = object,
+    function_name = "create_msi_dataset()",
+    parameter = list(no = "no")
+  )
+
   invisible(object)
 }

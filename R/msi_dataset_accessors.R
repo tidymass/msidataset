@@ -104,24 +104,11 @@ setReplaceMethod("expression_data", "msi_dataset", function(object, value) {
 #' @return Updated \code{msi_dataset} object.
 #' @export
 setReplaceMethod("sample_info", "msi_dataset", function(object, value) {
-  if ("pixel_id" %in% colnames(value) && !("sample_id" %in% colnames(value))) {
-    value$sample_id <- value$pixel_id
-  }
-  if (!("z" %in% colnames(value))) value$z <- 1
-  if (!("subject_id" %in% colnames(value))) value$subject_id <- "subject_1"
-  if (!("section_id" %in% colnames(value))) value$section_id <- "section_1"
-  if (!("resolution" %in% colnames(value))) value$resolution <- NA_real_
-  if (!("matrix" %in% colnames(value))) value$matrix <- NA_character_
+  value <- .normalize_sample_info(value)
   object@sample_info <- as.data.frame(value, stringsAsFactors = FALSE,
                                       check.names = FALSE)
-  # rebuild note if dimension changed
-  if (nrow(object@sample_info_note) != ncol(object@sample_info)) {
-    object@sample_info_note <- data.frame(
-      name    = colnames(object@sample_info),
-      meaning = colnames(object@sample_info),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
-  }
+  object@sample_info_note <- .sync_info_note(object@sample_info_note,
+                                             object@sample_info)
   colnames(object@expression_data) <- object@sample_info$sample_id
   methods::validObject(object)
   object
@@ -133,18 +120,11 @@ setReplaceMethod("sample_info", "msi_dataset", function(object, value) {
 #' @return Updated \code{msi_dataset} object.
 #' @export
 setReplaceMethod("variable_info", "msi_dataset", function(object, value) {
-  if (!("ms2" %in% colnames(value))) {
-    value$ms2 <- "no"
-  }
+  value <- .normalize_variable_info(value)
   object@variable_info <- as.data.frame(value, stringsAsFactors = FALSE,
                                         check.names = FALSE)
-  if (nrow(object@variable_info_note) != ncol(object@variable_info)) {
-    object@variable_info_note <- data.frame(
-      name    = colnames(object@variable_info),
-      meaning = colnames(object@variable_info),
-      check.names = FALSE, stringsAsFactors = FALSE
-    )
-  }
+  object@variable_info_note <- .sync_info_note(object@variable_info_note,
+                                               object@variable_info)
   rownames(object@expression_data) <- object@variable_info$variable_id
   methods::validObject(object)
   object

@@ -39,7 +39,8 @@ Optional columns: \code{ms2} (logical, yes/no indicator).}
 \item{\code{process_info}}{\code{list} of \code{tidymass_parameter} objects
 recording processing history.}
 
-\item{\code{other_files}}{\code{list} for miscellaneous attached files.}
+\item{\code{other_files}}{\code{list} for miscellaneous attached files.
+ROI is stored as \code{other_files$roi} using \code{msi_roi_set}.}
 
 \item{\code{version}}{\code{character} package version used to create the object.}
 

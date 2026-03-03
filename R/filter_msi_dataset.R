@@ -60,6 +60,7 @@ filter_msi_dataset <- function(object,
 #' Provides multiple filtering strategies for samples/pixels:
 #' - "spatial": Filter by spatial coordinates (x, y, z)
 #' - "section": Filter by section_id
+#' - "roi": Filter by ROI id
 #' - "run": Filter by experimental run/batch
 #' - "intensity": Filter by signal intensity (median, mean)
 #' - "custom": Apply custom filter function
@@ -89,9 +90,17 @@ filter_samples_comprehensive <- function(object,
            cat("Applying section filtering...\n")
            object <- filter_by_section(object, args = args)
          },
+
+         # ────────────────────────────────────────────────────────────────────
+         # Type 3: ROI filtering
+         # ────────────────────────────────────────────────────────────────────
+         "roi" = {
+           cat("Applying ROI filtering...\n")
+           object <- filter_by_roi(object, args = args)
+         },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 3: Run/Batch filtering
+         # Type 4: Run/Batch filtering
          # ────────────────────────────────────────────────────────────────────
          "run" = {
            cat("Applying run/batch filtering...\n")
@@ -99,7 +108,7 @@ filter_samples_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 4: Intensity-based filtering
+         # Type 5: Intensity-based filtering
          # ────────────────────────────────────────────────────────────────────
          "intensity" = {
            cat("Applying intensity-based filtering...\n")
@@ -107,7 +116,7 @@ filter_samples_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 5: Combined filtering
+         # Type 6: Combined filtering
          # ────────────────────────────────────────────────────────────────────
          "combined" = {
            cat("Applying combined filtering...\n")
@@ -115,7 +124,7 @@ filter_samples_comprehensive <- function(object,
          },
          
          # ────────────────────────────────────────────────────────────────────
-         # Type 6: Custom filter function
+         # Type 7: Custom filter function
          # ────────────────────────────────────────────────────────────────────
          "custom" = {
            cat("Applying custom filter function...\n")
@@ -124,7 +133,7 @@ filter_samples_comprehensive <- function(object,
          
          {
            stop(sprintf("Unknown filter_type: '%s'. Available types are:
-                   'spatial', 'section', 'run', 'intensity', 'combined', 'custom'", 
+                   'spatial', 'section', 'roi', 'run', 'intensity', 'combined', 'custom'", 
                         filter_type))
          }
   )
@@ -183,18 +192,18 @@ filter_spatial <- function(object, args) {
   object@expression_data <- new_expr
   object@sample_info <- new_sinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_spatial_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(spatial)",
-    parameter = list(x_min = x_min, x_max = x_max, 
-                     y_min = y_min, y_max = y_max,
-                     z_min = z_min, z_max = z_max),
-    time = Sys.time()
+    parameter = list(
+      x_min = x_min,
+      x_max = x_max,
+      y_min = y_min,
+      y_max = y_max,
+      z_min = z_min,
+      z_max = z_max
+    )
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
@@ -236,23 +245,31 @@ filter_by_section <- function(object, args) {
   object@expression_data <- new_expr
   object@sample_info <- new_sinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_section_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(section)",
-    parameter = list(section_ids = unlist(section_ids)),
-    time = Sys.time()
+    parameter = list(section_ids = unlist(section_ids))
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Sample Filter 3: Run/Batch Filtering
+# Sample Filter 3: ROI Filtering
+# ────────────────────────────────────────────────────────────────────────────
+
+#' @keywords internal
+filter_by_roi <- function(object, args) {
+  roi_id <- args$roi_id
+  if (is.null(roi_id)) {
+    stop("roi_id must be provided, e.g. roi_id = c('roi_1', 'roi_2').")
+  }
+  subset_by_roi(object, roi_id = roi_id, keep_roi = TRUE)
+}
+
+# ────────────────────────────────────────────────────────────────────────────
+# Sample Filter 4: Run/Batch Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -283,23 +300,18 @@ filter_by_run <- function(object, args) {
   object@expression_data <- new_expr
   object@sample_info <- new_sinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_run_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(run)",
-    parameter = list(run_ids = run_ids),
-    time = Sys.time()
+    parameter = list(run_ids = run_ids)
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Sample Filter 4: Intensity-based Filtering
+# Sample Filter 5: Intensity-based Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -333,24 +345,21 @@ filter_by_intensity <- function(object, args) {
   object@expression_data <- new_expr
   object@sample_info <- new_sinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_intensity_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(intensity)",
-    parameter = list(intensity_type = intensity_type, 
-                     intensity_threshold = intensity_threshold),
-    time = Sys.time()
+    parameter = list(
+      intensity_type = intensity_type,
+      intensity_threshold = intensity_threshold
+    )
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Sample Filter 5: Combined Filtering
+# Sample Filter 6: Combined Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -372,16 +381,23 @@ filter_samples_combined <- function(object, args) {
     object <- filter_by_section(object, args = section_args)
   }
   
-  # Step 3: Run filtering
+  # Step 3: ROI filtering
+  if (!is.null(args$roi)) {
+    cat("  Step 3: ROI filtering\n")
+    roi_args <- c(list(), args$roi)
+    object <- filter_by_roi(object, args = roi_args)
+  }
+
+  # Step 4: Run filtering
   if (!is.null(args$run)) {
-    cat("  Step 3: Run filtering\n")
+    cat("  Step 4: Run filtering\n")
     run_args <- c(list(), args$run)
     object <- filter_by_run(object, args = run_args)
   }
   
-  # Step 4: Intensity filtering
+  # Step 5: Intensity filtering
   if (!is.null(args$intensity)) {
-    cat("  Step 4: Intensity filtering\n")
+    cat("  Step 5: Intensity filtering\n")
     intensity_args <- c(list(), args$intensity)
     object <- filter_by_intensity(object, args = intensity_args)
   }
@@ -391,7 +407,7 @@ filter_samples_combined <- function(object, args) {
 
 
 # ────────────────────────────────────────────────────────────────────────────
-# Sample Filter 6: Custom Function Filtering
+# Sample Filter 7: Custom Function Filtering
 # ────────────────────────────────────────────────────────────────────────────
 
 #' @keywords internal
@@ -426,16 +442,11 @@ filter_by_custom_function <- function(object, args) {
   object@expression_data <- new_expr
   object@sample_info <- new_sinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_custom_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(custom)",
-    parameter = list(filter_function = "user_defined"),
-    time = Sys.time()
+    parameter = list(filter_function = "user_defined")
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
@@ -544,16 +555,11 @@ filter_mz_range <- function(object, args) {
   object@expression_data <- new_expr
   object@variable_info <- new_vinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_mz_range_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(mz_range)",
-    parameter = list(mz_min = mz_min, mz_max = mz_max),
-    time = Sys.time()
+    parameter = list(mz_min = mz_min, mz_max = mz_max)
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
@@ -590,16 +596,11 @@ filter_by_count <- function(object, args) {
   object@expression_data <- new_expr
   object@variable_info <- new_vinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_count_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(count)",
-    parameter = list(count_min = count_min, count_max = count_max),
-    time = Sys.time()
+    parameter = list(count_min = count_min, count_max = count_max)
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
@@ -642,17 +643,14 @@ filter_variable_intensity <- function(object, args) {
   object@expression_data <- new_expr
   object@variable_info <- new_vinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_var_intensity_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(intensity)",
-    parameter = list(intensity_type = intensity_type,
-                     intensity_threshold = intensity_threshold),
-    time = Sys.time()
+    parameter = list(
+      intensity_type = intensity_type,
+      intensity_threshold = intensity_threshold
+    )
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
@@ -728,16 +726,11 @@ filter_variable_by_custom <- function(object, args) {
   object@expression_data <- new_expr
   object@variable_info <- new_vinfo
   
-  # Record in process_info
-  process_key <- paste0("filter_var_custom_", format(Sys.time(), "%Y%m%d_%H%M%S"))
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "filter_msi_dataset(custom)",
-    parameter = list(filter_function = "user_defined"),
-    time = Sys.time()
+    parameter = list(filter_function = "user_defined")
   )
-  object@process_info[[process_key]] <- parameter
   
   return(object)
 }
@@ -766,10 +759,11 @@ show_filter_types <- function() {
   cat("FOR SAMPLES (target = 'sample_info'):\n")
   cat("  1. 'spatial'    - Filter by spatial coordinates (x, y, z)\n")
   cat("  2. 'section'    - Filter by section_id\n")
-  cat("  3. 'run'        - Filter by experimental run/batch\n")
-  cat("  4. 'intensity'  - Filter by signal intensity (median, mean)\n")
-  cat("  5. 'combined'   - Apply multiple filters in sequence\n")
-  cat("  6. 'custom'     - Apply custom filter function\n\n")
+  cat("  3. 'roi'        - Filter by ROI identifiers\n")
+  cat("  4. 'run'        - Filter by experimental run/batch\n")
+  cat("  5. 'intensity'  - Filter by signal intensity (median, mean)\n")
+  cat("  6. 'combined'   - Apply multiple filters in sequence\n")
+  cat("  7. 'custom'     - Apply custom filter function\n\n")
   
   cat("FOR VARIABLES (target = 'variable_info'):\n")
   cat("  1. 'mz_range'   - Filter by m/z range\n")

@@ -237,6 +237,10 @@ pixel_spectrum <- function(object, sample_id, plot = TRUE) {
 #' @param type ROI type: rectangle, polygon, freehand.
 #' @param roi List describing ROI coordinates.
 #' @param plot Logical.
+#' @param save_roi Save selected ROI into object ROI subsystem.
+#' @param roi_id ROI identifier used when \code{save_roi = TRUE}.
+#' @param roi_name ROI display name.
+#' @param overwrite Overwrite an existing ROI with the same id.
 #' @return Selected sample_info rows.
 #' @importFrom methods is
 #' @importFrom graphics points
@@ -244,7 +248,11 @@ pixel_spectrum <- function(object, sample_id, plot = TRUE) {
 roi_visualize <- function(object,
                           type = c("rectangle", "polygon", "freehand"),
                           roi,
-                          plot = TRUE) {
+                          plot = TRUE,
+                          save_roi = FALSE,
+                          roi_id = NULL,
+                          roi_name = roi_id,
+                          overwrite = FALSE) {
   stopifnot(methods::is(object, "msi_dataset"))
   type <- match.arg(type)
 
@@ -262,6 +270,19 @@ roi_visualize <- function(object,
 
   selected <- coords[inside, , drop = FALSE]
 
+  if (isTRUE(save_roi)) {
+    if (is.null(roi_id)) {
+      stop("roi_id must be provided when save_roi = TRUE.")
+    }
+    object <- add_roi(
+      object = object,
+      roi_id = roi_id,
+      roi_name = roi_name,
+      sample_id = selected$sample_id,
+      overwrite = overwrite
+    )
+  }
+
   if (plot) {
     tic <- colSums(object@expression_data, na.rm = TRUE)
     df <- .intensity_df(object, tic)
@@ -269,7 +290,16 @@ roi_visualize <- function(object,
     graphics::points(selected$x, selected$y, pch = 16, col = "cyan")
   }
 
-  object <- add_process_log(object, "roi_visualize()", list(type = type, n_selected = nrow(selected)))
+  object <- add_process_log(
+    object,
+    "roi_visualize()",
+    list(
+      type = type,
+      n_selected = nrow(selected),
+      save_roi = save_roi,
+      roi_id = roi_id
+    )
+  )
   attr(selected, "object") <- object
   selected
 }

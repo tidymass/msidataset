@@ -1,0 +1,4 @@
+"roi_id","roi_name","n_pixels","section_id"
+"roi_manual_1","Manual ROI 1",30,"section_1"
+"roi_manual_2","Renamed ROI 2",24,"section_1"
+"roi_rect_1","Rectangle ROI",15,"section_1"

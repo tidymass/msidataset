@@ -85,11 +85,44 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   
   # 4. Extract and Prepare Variable Info
   cat(crayon::blue("Preparing variable (m/z) information...\n"))
-  variable_info <- as.data.frame(Cardinal::fData(cardinal_object))
+  variable_info <- tryCatch(
+    {
+      as.data.frame(Cardinal::fData(cardinal_object))
+    },
+    error = function(e) {
+      mz_vals <- suppressWarnings(as.numeric(Cardinal::mz(cardinal_object)))
+      mz_vals <- mz_vals[is.finite(mz_vals)]
+      if (length(mz_vals) == 0) {
+        stop("Cannot extract feature metadata: both fData() and mz() are unavailable/empty.")
+      }
+      data.frame(mz = mz_vals, stringsAsFactors = FALSE)
+    }
+  )
   
   # Ensure mz column exists
   if (!"mz" %in% colnames(variable_info)) {
-    variable_info$mz <- Cardinal::mz(cardinal_object)
+    mz_vals <- suppressWarnings(as.numeric(Cardinal::mz(cardinal_object)))
+    mz_vals <- mz_vals[is.finite(mz_vals)]
+    if (length(mz_vals) == 0) {
+      stop("Cannot extract mz values from Cardinal object.")
+    }
+    variable_info$mz <- mz_vals
+  }
+  
+  # Keep variable_info rows aligned with expression_data rows
+  if (nrow(variable_info) != nrow(expression_data)) {
+    mz_vals <- suppressWarnings(as.numeric(Cardinal::mz(cardinal_object)))
+    mz_vals <- mz_vals[is.finite(mz_vals)]
+    if (length(mz_vals) == nrow(expression_data)) {
+      variable_info <- data.frame(mz = mz_vals, stringsAsFactors = FALSE)
+    } else if (nrow(variable_info) >= nrow(expression_data)) {
+      variable_info <- variable_info[seq_len(nrow(expression_data)), , drop = FALSE]
+    } else {
+      stop(
+        "Feature dimension mismatch: nrow(expression_data) = ", nrow(expression_data),
+        ", nrow(variable_info) = ", nrow(variable_info), "."
+      )
+    }
   }
   
   # Check for generate_variable_id function
@@ -131,9 +164,8 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   )
   
   # 7. Log Processing Activity
-  parameter <- new(
-    Class = "tidymass_parameter",
-    pacakge_name = "msidataset",
+  object <- add_process_log(
+    object = object,
     function_name = "convert_cardinal2msi_dataset()",
     parameter = list(
       sample_name = sample_name,
@@ -143,10 +175,8 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
       num_variables = nrow(expression_data),
       resolution = resolution,
       matrix_name = matrix_name
-    ),
-    time = Sys.time()
+    )
   )
-  object@process_info$convert_cardinal2msi_dataset <- parameter
   
   # 8. Summary Output
   cat(crayon::green("Successfully converted!\n\n"))

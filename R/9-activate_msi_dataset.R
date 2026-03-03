@@ -9,10 +9,9 @@
 #'     \item "sample_info": Activates the sample information dataset.
 #'     \item "variable_info": Activates the variable information dataset.
 #'     \item "expression_data": Activates the expression data (intensity matrix).
-#'     \item "pixel_info": Activates the pixel/spatial information (x, y coordinates).
 #'     \item "annotation_table": Activates the annotation table.
 #'   }
-#'   By default, it activates the "pixel_info" dataset.
+#'   By default, it activates the "sample_info" dataset.
 #'
 #' @details 
 #' This function allows users to activate a specific dataset within the 
@@ -26,25 +25,24 @@
 #' @export
 #' @examples
 #' # Assume object is a msi_dataset
-#' # object = activate_msi_dataset(.data = object, what = "pixel_info")
+#' # object = activate_msi_dataset(.data = object, what = "sample_info")
 #' # object@@activated
 
 activate_msi_dataset <-
   function(.data,
            what = c(
-             "pixel_info",
              "sample_info",
              "variable_info",
              "expression_data",
              "annotation_table"
            )) {
-    check_object_class(object = .data, class = "msi_dataset")
-    
-    # 匹配参数
+    if (!methods::is(.data, "msi_dataset")) {
+      stop("object must be a msi_dataset.")
+    }
+
     what <- match.arg(what)
-    
-    # 修改对象槽位
+
     slot(object = .data, name = "activated") <- what
-    
+
     return(.data)
   }

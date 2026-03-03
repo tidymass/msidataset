@@ -11,6 +11,7 @@ Provides multiple filtering strategies for samples/pixels:
 \itemize{
 \item "spatial": Filter by spatial coordinates (x, y, z)
 \item "section": Filter by section_id
+\item "roi": Filter by ROI id
 \item "run": Filter by experimental run/batch
 \item "intensity": Filter by signal intensity (median, mean)
 \item "custom": Apply custom filter function

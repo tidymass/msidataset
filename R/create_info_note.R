@@ -5,6 +5,34 @@
 # - variable_info: variable_id, mz, ms2 (3 columns)
 # ============================================================================
 
+.default_info_note <- function(df, meaning_map = NULL) {
+  cols <- colnames(df)
+  meanings <- cols
+  if (!is.null(meaning_map)) {
+    idx <- cols %in% names(meaning_map)
+    meanings[idx] <- unname(meaning_map[cols[idx]])
+  }
+  data.frame(
+    name = cols,
+    meaning = meanings,
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+}
+
+.sync_info_note <- function(note, df) {
+  if (missing(note) || is.null(note) || nrow(note) != ncol(df)) {
+    return(.default_info_note(df))
+  }
+  if (!all(c("name", "meaning") %in% colnames(note))) {
+    return(.default_info_note(df))
+  }
+  if (!all(note$name == colnames(df))) {
+    return(.default_info_note(df))
+  }
+  as.data.frame(note, check.names = FALSE, stringsAsFactors = FALSE)
+}
+
 #' Create Enhanced sample_info_note
 #' @description Generates comprehensive documentation for sample_info columns
 #' @param msi_object An msi_dataset object
@@ -33,25 +61,7 @@ create_enhanced_sample_info_note <- function(msi_object) {
     
   )
   
-  # Build note table
-  sample_info_cols <- colnames(msi_object@sample_info)
-  
-  meanings <- sapply(sample_info_cols, function(col) {
-    if (col %in% names(standard_meanings)) {
-      standard_meanings[[col]]
-    } else {
-      col  # Default: use column name as meaning if not predefined
-    }
-  }, USE.NAMES = FALSE)
-  
-  sample_info_note <- data.frame(
-    name = sample_info_cols,
-    meaning = meanings,
-    check.names = FALSE,
-    stringsAsFactors = FALSE
-  )
-  
-  return(sample_info_note)
+  .default_info_note(msi_object@sample_info, meaning_map = standard_meanings)
 }
 
 
@@ -72,25 +82,7 @@ create_enhanced_variable_info_note <- function(msi_object) {
     ms2 = "MS2 availability indicator (yes or no). Indicates whether tandem mass spectrometry (MS2) fragmentation data is available for this m/z feature."
   )
   
-  # Build note table
-  variable_info_cols <- colnames(msi_object@variable_info)
-  
-  meanings <- sapply(variable_info_cols, function(col) {
-    if (col %in% names(standard_meanings)) {
-      standard_meanings[[col]]
-    } else {
-      col  # Default: use column name as meaning if not predefined
-    }
-  }, USE.NAMES = FALSE)
-  
-  variable_info_note <- data.frame(
-    name = variable_info_cols,
-    meaning = meanings,
-    check.names = FALSE,
-    stringsAsFactors = FALSE
-  )
-  
-  return(variable_info_note)
+  .default_info_note(msi_object@variable_info, meaning_map = standard_meanings)
 }
 
 
