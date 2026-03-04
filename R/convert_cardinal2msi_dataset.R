@@ -11,6 +11,77 @@
 #' @param matrix_name MALDI matrix name: CHCA, DHB, NEDC, noMatrix (character, optional)
 #' @export
 
+.extract_cardinal_mz_numeric <- function(cardinal_object) {
+  raw_mz <- Cardinal::mz(cardinal_object)
+
+  extract_numeric <- function(x) {
+    if (is.null(x)) return(numeric(0))
+    if (is.numeric(x) || is.integer(x)) return(as.numeric(x))
+    if (is.character(x)) {
+      out <- suppressWarnings(as.numeric(x))
+      return(out[is.finite(out)])
+    }
+    if (is.matrix(x) || is.data.frame(x)) {
+      out <- suppressWarnings(as.numeric(as.matrix(x)))
+      return(out[is.finite(out)])
+    }
+    if (isS4(x)) {
+      for (nm in c("mz", "mzs", "mass", "values", "data")) {
+        if (nm %in% methods::slotNames(x)) {
+          out <- extract_numeric(methods::slot(x, nm))
+          if (length(out) > 0) return(out)
+        }
+      }
+      as_list <- try(as.list(x), silent = TRUE)
+      if (!inherits(as_list, "try-error")) {
+        out <- extract_numeric(as_list)
+        if (length(out) > 0) return(out)
+      }
+      return(numeric(0))
+    }
+    if (is.list(x)) {
+      if (!is.null(x$mz)) {
+        out <- extract_numeric(x$mz)
+        if (length(out) > 0) return(out)
+      }
+      for (i in seq_along(x)) {
+        out <- extract_numeric(x[[i]])
+        if (length(out) > 0) return(out)
+      }
+      pooled <- suppressWarnings(as.numeric(unlist(x, recursive = TRUE, use.names = FALSE)))
+      return(pooled[is.finite(pooled)])
+    }
+    out <- suppressWarnings(as.numeric(as.vector(x)))
+    out[is.finite(out)]
+  }
+
+  extract_numeric(raw_mz)
+}
+
+.coerce_mz_column_numeric <- function(x) {
+  if (is.null(x)) return(numeric(0))
+  if (is.numeric(x) || is.integer(x)) return(as.numeric(x))
+  if (is.character(x)) return(suppressWarnings(as.numeric(x)))
+  if (is.matrix(x) || is.data.frame(x)) {
+    return(suppressWarnings(as.numeric(as.matrix(x))))
+  }
+  if (isS4(x)) {
+    as_list <- try(as.list(x), silent = TRUE)
+    if (!inherits(as_list, "try-error")) {
+      return(.coerce_mz_column_numeric(as_list))
+    }
+    return(numeric(0))
+  }
+  if (is.list(x)) {
+    return(vapply(x, function(el) {
+      v <- suppressWarnings(as.numeric(el))
+      v <- v[is.finite(v)]
+      if (length(v) == 0) NA_real_ else v[[1]]
+    }, numeric(1)))
+  }
+  suppressWarnings(as.numeric(x))
+}
+
 convert_cardinal2msi_dataset <- function(cardinal_object,
                                          sample_name = "subject_1",
                                          section_name = "section_1",
@@ -90,8 +161,7 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
       as.data.frame(Cardinal::fData(cardinal_object))
     },
     error = function(e) {
-      mz_vals <- suppressWarnings(as.numeric(Cardinal::mz(cardinal_object)))
-      mz_vals <- mz_vals[is.finite(mz_vals)]
+      mz_vals <- .extract_cardinal_mz_numeric(cardinal_object)
       if (length(mz_vals) == 0) {
         stop("Cannot extract feature metadata: both fData() and mz() are unavailable/empty.")
       }
@@ -101,18 +171,27 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   
   # Ensure mz column exists
   if (!"mz" %in% colnames(variable_info)) {
-    mz_vals <- suppressWarnings(as.numeric(Cardinal::mz(cardinal_object)))
-    mz_vals <- mz_vals[is.finite(mz_vals)]
+    mz_vals <- .extract_cardinal_mz_numeric(cardinal_object)
     if (length(mz_vals) == 0) {
       stop("Cannot extract mz values from Cardinal object.")
     }
     variable_info$mz <- mz_vals
   }
+
+  # Ensure mz column is pure numeric (handles S4/list-like Cardinal metadata)
+  mz_col <- .coerce_mz_column_numeric(variable_info$mz)
+  if (length(mz_col) == nrow(variable_info) && sum(is.finite(mz_col)) > 0) {
+    variable_info$mz <- mz_col
+  } else {
+    mz_vals <- .extract_cardinal_mz_numeric(cardinal_object)
+    if (length(mz_vals) == nrow(variable_info)) {
+      variable_info$mz <- mz_vals
+    }
+  }
   
   # Keep variable_info rows aligned with expression_data rows
   if (nrow(variable_info) != nrow(expression_data)) {
-    mz_vals <- suppressWarnings(as.numeric(Cardinal::mz(cardinal_object)))
-    mz_vals <- mz_vals[is.finite(mz_vals)]
+    mz_vals <- .extract_cardinal_mz_numeric(cardinal_object)
     if (length(mz_vals) == nrow(expression_data)) {
       variable_info <- data.frame(mz = mz_vals, stringsAsFactors = FALSE)
     } else if (nrow(variable_info) >= nrow(expression_data)) {
@@ -122,6 +201,16 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
         "Feature dimension mismatch: nrow(expression_data) = ", nrow(expression_data),
         ", nrow(variable_info) = ", nrow(variable_info), "."
       )
+    }
+  }
+
+  # Final mz sanity check before ID generation
+  if (sum(is.finite(variable_info$mz)) < nrow(variable_info)) {
+    mz_vals <- .extract_cardinal_mz_numeric(cardinal_object)
+    if (length(mz_vals) == nrow(variable_info)) {
+      variable_info$mz <- mz_vals
+    } else {
+      stop("Failed to normalize mz column to numeric values for all variables.")
     }
   }
   

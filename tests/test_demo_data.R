@@ -146,8 +146,8 @@ if (length(section_ids) > 0) {
   )
 }
 
-safe_run("pixel_info()", print(utils::head(pixel_info(msi_obj))))
-safe_run("pixel_info_note()", print(utils::head(pixel_info_note(msi_obj))))
+safe_run("sample_info() (replacement for pixel_info())", print(utils::head(sample_info(msi_obj))))
+safe_run("sample_info_note() (replacement for pixel_info_note())", print(utils::head(sample_info_note(msi_obj))))
 
 safe_run("activate_msi_dataset(sample_info)", {
   msi_obj <<- activate_msi_dataset(msi_obj, what = "sample_info")
