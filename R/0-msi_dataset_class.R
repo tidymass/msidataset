@@ -10,13 +10,46 @@
 # Internal pre-check helper (called BEFORE object construction)
 # ---------------------------------------------------------------------------
 
+.make_spectrum_ids <- function(n) {
+  paste0("spectrum_", seq_len(as.integer(n)))
+}
+
+.is_spectrum_id <- function(x) {
+  grepl("^spectrum_[0-9]+$", x)
+}
+
+.standardize_sample_id <- function(sample_id, force = FALSE) {
+  sample_id <- as.character(sample_id)
+  invalid <- is.na(sample_id) | !nzchar(sample_id)
+  if (any(invalid)) {
+    sample_id[invalid] <- ""
+  }
+  needs_reset <- force ||
+    any(invalid) ||
+    any(duplicated(sample_id)) ||
+    !all(.is_spectrum_id(sample_id))
+  if (!needs_reset) {
+    return(sample_id)
+  }
+  .make_spectrum_ids(length(sample_id))
+}
+
 .normalize_sample_info <- function(sample_info) {
+  sample_info <- as.data.frame(
+    sample_info,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
   if ("pixel_id" %in% colnames(sample_info) &&
       !("sample_id" %in% colnames(sample_info))) {
     sample_info$sample_id <- sample_info$pixel_id
   }
+  if (!("sample_id" %in% colnames(sample_info))) {
+    sample_info$sample_id <- .make_spectrum_ids(nrow(sample_info))
+  }
+  sample_info$sample_id <- .standardize_sample_id(sample_info$sample_id)
   if (!("z" %in% colnames(sample_info))) {
-    sample_info$z <- 1
+    sample_info$z <- 1L
   }
   if (!("subject_id" %in% colnames(sample_info))) {
     sample_info$subject_id <- "subject_1"
@@ -39,9 +72,30 @@
 }
 
 .normalize_variable_info <- function(variable_info) {
+  variable_info <- as.data.frame(
+    variable_info,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+
   if (!("ms2" %in% colnames(variable_info))) {
     variable_info$ms2 <- "no"
   }
+  if (!("has_ms2" %in% colnames(variable_info))) {
+    variable_info$has_ms2 <- "no"
+  }
+  if (!("ms2_id" %in% colnames(variable_info))) {
+    variable_info$ms2_id <- NA_character_
+  }
+  if (!("ms2_type" %in% colnames(variable_info))) {
+    variable_info$ms2_type <- NA_character_
+  }
+
+  variable_info$ms2 <- ifelse(variable_info$ms2 %in% c(TRUE, 1, "yes", "Yes"), "Yes", "no")
+  variable_info$has_ms2 <- ifelse(variable_info$has_ms2 %in% c(TRUE, 1, "yes", "Yes"), "yes", "no")
+  variable_info$ms2_id <- as.character(variable_info$ms2_id)
+  variable_info$ms2_type <- as.character(variable_info$ms2_type)
+
   variable_info
 }
 
@@ -65,7 +119,7 @@ check_msi_dataset <- function(expression_data,
   sample_info_md <- sample_info
   sample_info_note_md <- sample_info_note
   if ("sample_id" %in% colnames(sample_info_md) && !("class" %in% colnames(sample_info_md))) {
-    sample_info_md$class <- "MSI_PIXEL"
+    sample_info_md$class <- rep("MSI_PIXEL", nrow(sample_info_md))
     if (!missing(sample_info_note) && !is.null(sample_info_note)) {
       sample_info_note_md <- rbind(
         sample_info_note_md,
@@ -106,6 +160,26 @@ check_msi_dataset <- function(expression_data,
   }
   if ("y" %in% colnames(sample_info) && !is.numeric(sample_info$y)) {
     errors <- c(errors, "sample_info$y must be numeric.")
+  }
+  if ("z" %in% colnames(sample_info) && !is.numeric(sample_info$z)) {
+    errors <- c(errors, "sample_info$z must be numeric.")
+  }
+  if ("sample_id" %in% colnames(sample_info)) {
+    sid <- as.character(sample_info$sample_id)
+    if (anyNA(sid) || any(!nzchar(sid))) {
+      errors <- c(errors, "sample_info$sample_id cannot contain NA/empty values.")
+    }
+    if (any(duplicated(sid))) {
+      errors <- c(errors, "sample_info$sample_id must be unique.")
+    }
+    if (!all(.is_spectrum_id(sid))) {
+      errors <- c(errors, "sample_info$sample_id must use pattern spectrum_<index>.")
+    }
+    if (!is.null(colnames(expression_df))) {
+      if (!identical(as.character(colnames(expression_df)), sid)) {
+        errors <- c(errors, "expression_data colnames must exactly match sample_info$sample_id in order.")
+      }
+    }
   }
 
   if (length(errors) > 0) {
@@ -299,6 +373,10 @@ create_msi_dataset <- function(expression_data,
 
   sample_info <- .normalize_sample_info(sample_info)
   variable_info <- .normalize_variable_info(variable_info)
+  if (is.data.frame(expression_data)) {
+    expression_data <- as.matrix(expression_data)
+  }
+  dimnames(expression_data) <- list(variable_info$variable_id, sample_info$sample_id)
   
   ## ---- auto-generate notes if missing ----
   sample_info_note <- .sync_info_note(sample_info_note, sample_info)
@@ -318,9 +396,6 @@ create_msi_dataset <- function(expression_data,
   }
   
   ## ---- keep matrix-like backend, only coerce when needed ----
-  if (is.data.frame(expression_data)) {
-    expression_data <- as.matrix(expression_data)
-  }
   
   sample_info        <- as.data.frame(sample_info,        check.names = FALSE,
                                       stringsAsFactors = FALSE)

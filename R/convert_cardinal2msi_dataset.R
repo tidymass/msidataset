@@ -87,10 +87,21 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
                                          section_name = "section_1",
                                          resolution = NA,
                                          matrix_name = NA) {
+  # Step 1: validate input
+  # Step 2: compute mask/alignment (Cardinal -> MSI matrix orientation)
+  # Step 3: subset expression_data (if needed to synchronize dimensions)
+  # Step 4: update pixel_info (sample_info) and variable_info
+  # Step 5: run validObject()
   
   # 1. Check Cardinal package
   if (!requireNamespace("Cardinal", quietly = TRUE)) {
     stop("please install Cardinal package: BiocManager::install('Cardinal')")
+  }
+  can_parse <- !inherits(try(Cardinal::spectra(cardinal_object), silent = TRUE), "try-error") &&
+    !inherits(try(Cardinal::pData(cardinal_object), silent = TRUE), "try-error") &&
+    !inherits(try(Cardinal::coord(cardinal_object), silent = TRUE), "try-error")
+  if (!isTRUE(can_parse)) {
+    stop("cardinal_object must be a valid Cardinal MSI object with spectra/pData/coord accessors.")
   }
   
   # 2. Extract Expression Data (intensity matrix)
@@ -106,7 +117,7 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   
   # Create sample_id column (pixel-level unique id)
   if (is.null(pixel_ids) || all(pixel_ids == seq_len(nrow(sample_info)))) {
-    sample_info$sample_id <- paste0("pixel_", seq_len(nrow(sample_info)))
+    sample_info$sample_id <- .make_spectrum_ids(nrow(sample_info))
   } else {
     sample_info$sample_id <- pixel_ids
   }
@@ -153,6 +164,20 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
   
   # Reorder to have core columns first
   sample_info <- sample_info[, existing_cols, drop = FALSE]
+
+  # Normalize orientation: columns must be samples/pixels.
+  n_samples_expected <- nrow(sample_info)
+  if (ncol(expression_data) == n_samples_expected) {
+    # expected orientation: features x samples
+  } else if (nrow(expression_data) == n_samples_expected) {
+    expression_data <- t(expression_data)
+  } else {
+    stop(
+      "Cannot align expression_data with sample_info. ",
+      "dim(expression_data) = ", paste(dim(expression_data), collapse = " x "),
+      ", nrow(sample_info) = ", n_samples_expected, "."
+    )
+  }
   
   # 4. Extract and Prepare Variable Info
   cat(crayon::blue("Preparing variable (m/z) information...\n"))
@@ -235,9 +260,19 @@ convert_cardinal2msi_dataset <- function(cardinal_object,
     }
     # Otherwise assume it's already yes/no character
   }
-  
-  # Keep only required columns: variable_id, mz, ms2
-  variable_info <- variable_info[, c("variable_id", "mz", "ms2"), drop = FALSE]
+
+  if (!("has_ms2" %in% colnames(variable_info))) {
+    variable_info$has_ms2 <- "no"
+  }
+  if (!("ms2_id" %in% colnames(variable_info))) {
+    variable_info$ms2_id <- NA_character_
+  }
+  if (!("ms2_type" %in% colnames(variable_info))) {
+    variable_info$ms2_type <- NA_character_
+  }
+
+  # Keep required + standardized MS2 linkage columns
+  variable_info <- variable_info[, c("variable_id", "mz", "ms2", "has_ms2", "ms2_id", "ms2_type"), drop = FALSE]
   
   # 5. Set Expression Data Dimensions
   cat(crayon::blue("Setting expression data dimensions...\n"))

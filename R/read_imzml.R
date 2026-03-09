@@ -2,25 +2,30 @@
 # Read imzML data and convert to msi_dataset
 # ============================================================================
 
-.find_imzml_file <- function(path_1) {
-  if (dir.exists(path_1)) {
-    files <- list.files(path_1, pattern = "\\.imzML$", ignore.case = TRUE,
-                        full.names = TRUE)
-    if (length(files) == 0) {
-      stop("No .imzML file found in path_1 directory.")
+.find_imzml_files <- function(path_1) {
+  if (length(path_1) == 0) {
+    stop("path_1 is empty.")
+  }
+  all_files <- character()
+  for (p in as.character(path_1)) {
+    if (dir.exists(p)) {
+      files <- list.files(p, pattern = "\\.imzML$", ignore.case = TRUE,
+                          full.names = TRUE)
+      if (length(files) == 0) {
+        stop("No .imzML file found in directory: ", p)
+      }
+      all_files <- c(all_files, files[[1]])
+      next
     }
-    return(files[[1]])
+    if (!file.exists(p)) {
+      stop("Path does not exist: ", p)
+    }
+    if (!grepl("\\.imzML$", p, ignore.case = TRUE)) {
+      stop("Each path in path_1 must be an .imzML file or directory.")
+    }
+    all_files <- c(all_files, p)
   }
-
-  if (!file.exists(path_1)) {
-    stop("path_1 does not exist.")
-  }
-
-  if (!grepl("\\.imzML$", path_1, ignore.case = TRUE)) {
-    stop("path_1 must be an .imzML file or a directory containing one.")
-  }
-
-  path_1
+  unique(normalizePath(all_files, winslash = "/", mustWork = TRUE))
 }
 
 .parse_mgf <- function(mgf_file) {
@@ -229,6 +234,47 @@
   lapply(X, FUN)
 }
 
+.cli_progress_start <- function(total,
+                                name = "MSI import",
+                                enable = TRUE,
+                                format = "{name}\n{bar} {percent} | ETA: {eta}") {
+  if (!isTRUE(enable) || !requireNamespace("cli", quietly = TRUE)) {
+    return(NULL)
+  }
+  tryCatch(
+    cli::cli_progress_bar(
+      name = name,
+      total = as.integer(total),
+      format = format,
+      clear = FALSE
+    ),
+    error = function(e) NULL
+  )
+}
+
+.cli_progress_update <- function(id, msg = NULL, inc = 1L) {
+  if (is.null(id) || !requireNamespace("cli", quietly = TRUE)) {
+    return(invisible(NULL))
+  }
+  try(
+    cli::cli_progress_update(
+      id = id,
+      inc = as.integer(inc),
+      status = if (is.null(msg)) "" else as.character(msg)
+    ),
+    silent = TRUE
+  )
+  invisible(NULL)
+}
+
+.cli_progress_done <- function(id) {
+  if (is.null(id) || !requireNamespace("cli", quietly = TRUE)) {
+    return(invisible(NULL))
+  }
+  try(cli::cli_progress_done(id = id), silent = TRUE)
+  invisible(NULL)
+}
+
 .cache_key <- function(imzml_file, bin_digits, max_features) {
   ibd_file <- sub("\\.imzML$", ".ibd", imzml_file, ignore.case = TRUE)
   imzml_info <- file.info(imzml_file)
@@ -276,41 +322,22 @@
                                      verbose = TRUE,
                                      chunk_size = 256L,
                                      parallel_backend = c("none", "future", "biocparallel"),
-                                     workers = 1L) {
+                                     workers = 1L,
+                                     progress = interactive()) {
   parallel_backend <- match.arg(parallel_backend)
   n_pixels <- length(intensity_list)
   if (length(mz_list) != n_pixels) {
     stop("Alignment error: mz_list length does not match intensity_list length.")
   }
 
-  all_mz <- unlist(mz_list, recursive = TRUE, use.names = FALSE)
-  all_mz <- suppressWarnings(as.numeric(all_mz))
-  all_mz <- all_mz[is.finite(all_mz)]
-  if (length(all_mz) == 0) {
-    stop("Alignment error: no finite m/z values found in processed spectra.")
-  }
-
   digits <- as.integer(bin_digits)
   if (is.na(digits) || digits < 1L) {
     digits <- 4L
   }
-  axis <- sort(unique(round(all_mz, digits)))
-
-  while (length(axis) > as.integer(max_features) && digits > 1L) {
-    digits <- digits - 1L
-    axis <- sort(unique(round(all_mz, digits)))
-  }
-
-  if (verbose) {
-    message(
-      "Processed alignment: pixels=", n_pixels,
-      ", features=", length(axis),
-      ", digits=", digits, "."
-    )
-  }
 
   chunk_size <- max(1L, as.integer(chunk_size))
   chunks <- split(seq_len(n_pixels), ceiling(seq_len(n_pixels) / chunk_size))
+  n_chunks <- length(chunks)
 
   process_chunk <- function(idx_vec) {
     if (requireNamespace("data.table", quietly = TRUE)) {
@@ -367,24 +394,136 @@
     out
   }
 
-  chunk_results <- .parallel_lapply(
-    X = chunks,
-    FUN = process_chunk,
-    backend = parallel_backend,
-    workers = workers,
-    verbose = verbose
+  run_chunk_processing <- function(update_fun = NULL) {
+    if (parallel_backend == "none") {
+      out <- vector("list", n_chunks)
+      for (ci in seq_along(chunks)) {
+        out[[ci]] <- process_chunk(chunks[[ci]])
+        if (!is.null(update_fun)) {
+          update_fun(sprintf("Aligning spectra %d / %d", ci, n_chunks))
+        }
+      }
+      return(out)
+    }
+
+    out <- .parallel_lapply(
+      X = chunks,
+      FUN = process_chunk,
+      backend = parallel_backend,
+      workers = workers,
+      verbose = verbose
+    )
+    if (!is.null(update_fun)) {
+      for (ci in seq_along(out)) {
+        update_fun(sprintf("Aligning spectra %d / %d", ci, n_chunks))
+      }
+    }
+    out
+  }
+
+  read_cli_id <- .cli_progress_start(
+    total = n_chunks,
+    name = "Reading spectra",
+    enable = isTRUE(progress)
   )
+  all_mz_chunks <- vector("list", n_chunks)
+  if (isTRUE(progress) && requireNamespace("progressr", quietly = TRUE)) {
+    progressr::with_progress({
+      p_read <- progressr::progressor(steps = n_chunks)
+      for (ci in seq_along(chunks)) {
+        idx_vec <- chunks[[ci]]
+        mz_chunk <- unlist(mz_list[idx_vec], recursive = TRUE, use.names = FALSE)
+        mz_chunk <- suppressWarnings(as.numeric(mz_chunk))
+        all_mz_chunks[[ci]] <- mz_chunk[is.finite(mz_chunk)]
+        msg <- sprintf("Reading spectra %d / %d", ci, n_chunks)
+        .cli_progress_update(read_cli_id, msg)
+        p_read(msg)
+      }
+    })
+  } else {
+    for (ci in seq_along(chunks)) {
+      idx_vec <- chunks[[ci]]
+      mz_chunk <- unlist(mz_list[idx_vec], recursive = TRUE, use.names = FALSE)
+      mz_chunk <- suppressWarnings(as.numeric(mz_chunk))
+      all_mz_chunks[[ci]] <- mz_chunk[is.finite(mz_chunk)]
+      .cli_progress_update(read_cli_id, sprintf("Reading spectra %d / %d", ci, n_chunks))
+    }
+  }
+  .cli_progress_done(read_cli_id)
+
+  all_mz <- unlist(all_mz_chunks, recursive = TRUE, use.names = FALSE)
+  if (length(all_mz) == 0) {
+    stop("Alignment error: no finite m/z values found in processed spectra.")
+  }
+  axis <- sort(unique(round(all_mz, digits)))
+  while (length(axis) > as.integer(max_features) && digits > 1L) {
+    digits <- digits - 1L
+    axis <- sort(unique(round(all_mz, digits)))
+  }
+  if (verbose) {
+    message(
+      "Processed alignment: pixels=", n_pixels,
+      ", features=", length(axis),
+      ", digits=", digits, "."
+    )
+  }
+
+  align_cli_id <- .cli_progress_start(
+    total = n_chunks,
+    name = "Aligning m/z axis",
+    enable = isTRUE(progress)
+  )
+  chunk_results_env <- new.env(parent = emptyenv())
+  chunk_results_env$value <- NULL
+  if (isTRUE(progress) && requireNamespace("progressr", quietly = TRUE)) {
+    progressr::with_progress({
+      p_align <- progressr::progressor(steps = n_chunks)
+      chunk_results_env$value <- run_chunk_processing(update_fun = function(msg) {
+        .cli_progress_update(align_cli_id, msg)
+        p_align(msg)
+      })
+    })
+  } else {
+    chunk_results_env$value <- run_chunk_processing(update_fun = function(msg) {
+      .cli_progress_update(align_cli_id, msg)
+    })
+  }
+  chunk_results <- chunk_results_env$value
+  .cli_progress_done(align_cli_id)
 
   expr <- matrix(0, nrow = length(axis), ncol = n_pixels)
   axis_chr <- as.character(axis)
-  for (res in chunk_results) {
-    if (is.null(res) || nrow(res) == 0) next
-    mz_idx <- match(as.character(res$mz), axis_chr)
-    keep <- !is.na(mz_idx)
-    if (any(keep)) {
-      expr[cbind(mz_idx[keep], as.integer(res$pixel[keep]))] <- as.numeric(res$intensity[keep])
+  fill_cli_id <- .cli_progress_start(
+    total = n_chunks,
+    name = "Constructing feature matrix",
+    enable = isTRUE(progress)
+  )
+  fill_loop <- function(progress_fun = NULL) {
+    for (ci in seq_along(chunk_results)) {
+      res <- chunk_results[[ci]]
+      if (!is.null(res) && nrow(res) > 0) {
+        mz_idx <- match(as.character(res$mz), axis_chr)
+        keep <- !is.na(mz_idx)
+        if (any(keep)) {
+          expr[cbind(mz_idx[keep], as.integer(res$pixel[keep]))] <- as.numeric(res$intensity[keep])
+        }
+      }
+      msg <- sprintf("Constructing feature matrix %d / %d", ci, n_chunks)
+      .cli_progress_update(fill_cli_id, msg)
+      if (!is.null(progress_fun)) {
+        progress_fun(msg)
+      }
     }
   }
+  if (isTRUE(progress) && requireNamespace("progressr", quietly = TRUE)) {
+    progressr::with_progress({
+      p_fill <- progressr::progressor(steps = n_chunks)
+      fill_loop(progress_fun = p_fill)
+    })
+  } else {
+    fill_loop()
+  }
+  .cli_progress_done(fill_cli_id)
 
   warning(
     "Processed imzML with inconsistent per-pixel spectrum lengths detected. ",
@@ -402,7 +541,8 @@
                                       verbose = TRUE,
                                       chunk_size = 256L,
                                       parallel_backend = c("none", "future", "biocparallel"),
-                                      workers = 1L) {
+                                      workers = 1L,
+                                      progress = interactive()) {
   parallel_backend <- match.arg(parallel_backend)
   raw_spec <- Cardinal::spectra(cardinal_object)
 
@@ -433,7 +573,8 @@
           verbose = verbose,
           chunk_size = chunk_size,
           parallel_backend = parallel_backend,
-          workers = workers
+          workers = workers,
+          progress = progress
         ))
       }
     }
@@ -454,7 +595,8 @@
           verbose = verbose,
           chunk_size = chunk_size,
           parallel_backend = parallel_backend,
-          workers = workers
+          workers = workers,
+          progress = progress
         ))
       }
     }
@@ -486,7 +628,8 @@
         verbose = verbose,
         chunk_size = chunk_size,
         parallel_backend = parallel_backend,
-        workers = workers
+        workers = workers,
+        progress = progress
       ))
     }
   }
@@ -581,7 +724,7 @@
 
   n_samples <- nrow(coords)
   if (is.null(sample_id)) {
-    sample_id <- paste0("pixel_", seq_len(n_samples))
+    sample_id <- .make_spectrum_ids(n_samples)
   }
 
   sample_info <- data.frame(
@@ -601,6 +744,9 @@
     variable_id = generate_variable_id(mz_values),
     mz = as.numeric(mz_values),
     ms2 = rep("no", length(mz_values)),
+    has_ms2 = rep("no", length(mz_values)),
+    ms2_id = rep(NA_character_, length(mz_values)),
+    ms2_type = rep(NA_character_, length(mz_values)),
     stringsAsFactors = FALSE,
     check.names = FALSE
   )
@@ -615,13 +761,117 @@
   )
 }
 
+.read_single_imzml_section <- function(imzml_file,
+                                       bin_digits,
+                                       max_features,
+                                       verbose,
+                                       chunk_size,
+                                       parallel_backend,
+                                       workers,
+                                       use_cache,
+                                       progress,
+                                       cache_dir = NULL) {
+  cardinal_object <- Cardinal::readMSIData(imzml_file)
+  pdata <- as.data.frame(Cardinal::pData(cardinal_object), stringsAsFactors = FALSE)
+  coords <- Cardinal::coord(cardinal_object)
+  n_pixels <- nrow(pdata)
+
+  if (is.null(cache_dir)) {
+    cache_dir <- file.path(dirname(imzml_file), ".msidataset_cache")
+  }
+
+  cache_key <- .cache_key(
+    imzml_file = imzml_file,
+    bin_digits = bin_digits,
+    max_features = max_features
+  )
+  cache_hit <- FALSE
+  expression_res <- if (isTRUE(use_cache)) .load_alignment_cache(cache_dir, cache_key) else NULL
+  if (!is.null(expression_res) && ncol(expression_res$expression_data) == n_pixels) {
+    cache_hit <- TRUE
+    if (verbose) {
+      message("Loaded aligned spectra from cache: ", cache_key)
+    }
+  } else {
+    expression_res <- .extract_expression_matrix(
+      cardinal_object = cardinal_object,
+      n_pixels = n_pixels,
+      bin_digits = bin_digits,
+      max_features = max_features,
+      verbose = verbose,
+      chunk_size = chunk_size,
+      parallel_backend = parallel_backend,
+      workers = workers,
+      progress = progress
+    )
+    if (isTRUE(use_cache) && !is.null(expression_res$mz_values)) {
+      .save_alignment_cache(cache_dir, cache_key, expression_res)
+    }
+  }
+
+  expression_data <- expression_res$expression_data
+  if (ncol(expression_data) == n_pixels) {
+    # aligned
+  } else if (nrow(expression_data) == n_pixels) {
+    expression_data <- t(expression_data)
+  } else {
+    stop(
+      "Cannot align expression_data with sample_info: n_pixels = ", n_pixels,
+      ", dim(expression_data) = ", paste(dim(expression_data), collapse = " x "), "."
+    )
+  }
+
+  if (ncol(coords) < 2) {
+    stop("Could not parse x and y coordinates from imzML.")
+  }
+  if (!is.null(expression_res$mz_values)) {
+    mz_values <- expression_res$mz_values
+  } else {
+    mz_values <- .extract_mz_force_numeric(
+      cardinal_object = cardinal_object,
+      n_feature = nrow(expression_data)
+    )
+  }
+
+  list(
+    expression_data = as.matrix(expression_data),
+    mz_values = as.numeric(mz_values),
+    coords = coords,
+    cache_hit = cache_hit,
+    cache_dir = cache_dir
+  )
+}
+
+.align_section_matrices <- function(section_data, bin_digits) {
+  mz_rounded <- lapply(section_data, function(x) round(as.numeric(x$mz_values), as.integer(bin_digits)))
+  all_mz <- sort(unique(unlist(mz_rounded, recursive = TRUE, use.names = FALSE)))
+  if (length(all_mz) == 0) {
+    stop("No m/z values found across sections.")
+  }
+  aligned <- lapply(seq_along(section_data), function(i) {
+    x <- section_data[[i]]
+    expr <- as.matrix(x$expression_data)
+    idx <- match(mz_rounded[[i]], all_mz)
+    mat <- matrix(0, nrow = length(all_mz), ncol = ncol(expr))
+    if (any(duplicated(idx))) {
+      agg <- rowsum(expr, group = idx, reorder = FALSE)
+      row_idx <- suppressWarnings(as.integer(rownames(agg)))
+      mat[row_idx, ] <- agg
+    } else {
+      mat[idx, ] <- expr
+    }
+    mat
+  })
+  list(expression_data = do.call(cbind, aligned), mz_values = all_mz)
+}
+
 #' Read imzML files into an msidataset object
 #'
 #' @description
-#' Read MSI data from an `imzML` file (or directory containing one), construct an
+#' Read MSI data from one or more `imzML` files, construct an
 #' `msi_dataset` object, parse optional MGF MS2 spectra, and save the resulting
 #' object to disk. The function auto-populates MSI-specific `sample_info`
-#' including `x`, `y`, and `z` coordinates.
+#' including `x`, `y`, and section-level `z` coordinates.
 #'
 #' Coordinate system convention: pixel coordinates are treated as 1-based image
 #' coordinates where `(x = 1, y = 1)` corresponds to the top-left position.
@@ -629,7 +879,7 @@
 #' `peak_align_tolerance` is applied as a ppm tolerance window when mapping MGF
 #' precursor m/z values to MSI features in `variable_info$mz`.
 #'
-#' @param path_1 Character. Input path. Either:
+#' @param path_1 Character vector. Input path(s). Each element can be:
 #'   1) full path to one `.imzML` file, or
 #'   2) directory containing at least one `.imzML` file.
 #' @param peak_align_tolerance Numeric scalar (ppm). Tolerance used for MS2
@@ -646,6 +896,7 @@
 #' @param workers Integer number of workers when parallel backend is enabled.
 #' @param use_cache Logical. Cache aligned processed spectra result for reuse.
 #' @param cache_dir Character directory used to store/read alignment cache.
+#' @param progress Logical. Show real-time progress for major import stages.
 #' @param resolution Numeric. Spatial resolution (for example, micrometers per
 #'   pixel) to write into `sample_info$resolution`.
 #' @param matrix_name Character. MALDI matrix name to write into
@@ -655,7 +906,7 @@
 #' @importFrom tools file_path_sans_ext
 #' @export
 read_imzml <- function(path_1 = "input",
-                       peak_align_tolerance = 50,
+                       peak_align_tolerance = 10,
                        path_2 = "output",
                        bin_digits = 4,
                        max_features = 150000,
@@ -665,6 +916,7 @@ read_imzml <- function(path_1 = "input",
                        workers = 1,
                        use_cache = TRUE,
                        cache_dir = NULL,
+                       progress = interactive(),
                        resolution = NA_real_,
                        matrix_name = NA_character_) {
   parallel_backend <- match.arg(parallel_backend)
@@ -673,98 +925,81 @@ read_imzml <- function(path_1 = "input",
     stop("please install Cardinal package: BiocManager::install('Cardinal')")
   }
 
-  imzml_file <- .find_imzml_file(path_1)
-  cardinal_object <- Cardinal::readMSIData(imzml_file)
-  pdata <- as.data.frame(Cardinal::pData(cardinal_object), stringsAsFactors = FALSE)
-  coords <- Cardinal::coord(cardinal_object)
-  n_pixels <- nrow(pdata)
-
-  if (is.null(cache_dir)) {
-    cache_dir <- file.path(dirname(imzml_file), ".msidataset_cache")
-  }
-
-  cache_hit <- FALSE
-  cache_key <- .cache_key(
-    imzml_file = imzml_file,
-    bin_digits = bin_digits,
-    max_features = max_features
+  imzml_files <- .find_imzml_files(path_1)
+  section_data <- lapply(
+    imzml_files,
+    function(f) {
+      .read_single_imzml_section(
+        imzml_file = f,
+        bin_digits = bin_digits,
+        max_features = max_features,
+        verbose = verbose,
+        chunk_size = chunk_size,
+        parallel_backend = parallel_backend,
+        workers = workers,
+        use_cache = use_cache,
+        progress = progress,
+        cache_dir = cache_dir
+      )
+    }
   )
 
-  expression_res <- if (isTRUE(use_cache)) .load_alignment_cache(cache_dir, cache_key) else NULL
-  if (!is.null(expression_res) && ncol(expression_res$expression_data) == n_pixels) {
-    cache_hit <- TRUE
-    if (verbose) {
-      message("Loaded aligned spectra from cache: ", cache_key)
-    }
-  } else {
-    expression_res <- .extract_expression_matrix(
-      cardinal_object = cardinal_object,
-      n_pixels = n_pixels,
-      bin_digits = bin_digits,
-      max_features = max_features,
-      verbose = verbose,
-      chunk_size = chunk_size,
-      parallel_backend = parallel_backend,
-      workers = workers
+  aligned <- .align_section_matrices(section_data, bin_digits = bin_digits)
+  expression_data <- aligned$expression_data
+  mz_values <- aligned$mz_values
+
+  sample_info_list <- vector("list", length(section_data))
+  offset <- 0L
+  for (i in seq_along(section_data)) {
+    sec <- section_data[[i]]
+    coords <- as.matrix(sec$coords)
+    n_pix <- nrow(coords)
+    ids <- paste0("spectrum_", offset + seq_len(n_pix))
+    sample_info_list[[i]] <- data.frame(
+      sample_id = ids,
+      x = as.numeric(coords[, 1]),
+      y = as.numeric(coords[, 2]),
+      z = rep(as.numeric(i), n_pix),
+      subject_id = rep(file_path_sans_ext(basename(imzml_files[[i]])), n_pix),
+      section_id = rep(paste0("section_", i), n_pix),
+      resolution = rep(as.numeric(resolution), n_pix),
+      matrix = rep(as.character(matrix_name), n_pix),
+      stringsAsFactors = FALSE,
+      check.names = FALSE
     )
-    if (isTRUE(use_cache) && !is.null(expression_res$mz_values)) {
-      .save_alignment_cache(cache_dir, cache_key, expression_res)
-    }
+    offset <- offset + n_pix
   }
+  sample_info <- do.call(rbind, sample_info_list)
 
-  expression_data <- expression_res$expression_data
+  variable_info <- data.frame(
+    variable_id = generate_variable_id(mz_values),
+    mz = as.numeric(mz_values),
+    ms2 = rep("no", length(mz_values)),
+    has_ms2 = rep("no", length(mz_values)),
+    ms2_id = rep(NA_character_, length(mz_values)),
+    ms2_type = rep(NA_character_, length(mz_values)),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
 
-  if (ncol(expression_data) == n_pixels) {
-    # correct orientation
-  } else if (nrow(expression_data) == n_pixels) {
-    expression_data <- t(expression_data)
-  } else {
-    stop(
-      "Cannot align expression_data with sample_info: n_pixels = ", n_pixels,
-      ", dim(expression_data) = ", paste(dim(expression_data), collapse = " x "), "."
-    )
-  }
+  rownames(expression_data) <- variable_info$variable_id
+  colnames(expression_data) <- sample_info$sample_id
 
-  if (ncol(coords) < 2) {
-    stop("Could not parse x and y coordinates from imzML.")
-  }
-
-  sample_id <- rownames(pdata)
-  if (is.null(sample_id) || any(sample_id == "")) {
-    sample_id <- paste0("pixel_", seq_len(nrow(pdata)))
-  }
-
-  if (!is.null(expression_res$mz_values)) {
-    mz_values <- expression_res$mz_values
-  } else {
-    mz_values <- .extract_mz_force_numeric(
-      cardinal_object = cardinal_object,
-      n_feature = nrow(expression_data)
-    )
-  }
-
-  object <- .build_msi_dataset_from_components(
+  object <- create_msi_dataset(
     expression_data = expression_data,
-    coords = coords,
-    mz_values = mz_values,
-    sample_id = sample_id,
-    subject_id = file_path_sans_ext(basename(imzml_file)),
-    section_id = "section_1",
-    resolution = resolution,
-    matrix_name = matrix_name
+    sample_info = sample_info,
+    variable_info = variable_info
   )
 
-  mgf_candidates <- list.files(dirname(imzml_file), pattern = "\\.mgf$",
-                               ignore.case = TRUE, full.names = TRUE)
+  mgf_dirs <- unique(dirname(imzml_files))
+  mgf_candidates <- unlist(lapply(mgf_dirs, function(x) {
+    list.files(x, pattern = "\\.mgf$", ignore.case = TRUE, full.names = TRUE)
+  }))
   if (length(mgf_candidates) > 0) {
-    spectra <- .parse_mgf(mgf_candidates[[1]])
-    precursor_mz <- .extract_precursor_mz(spectra)
-
-    object@ms2_data <- spectra
-    object@variable_info$ms2 <- .map_ms2_features_fast(
-      variable_mz = object@variable_info$mz,
-      precursor_mz = precursor_mz,
-      ppm_tolerance = peak_align_tolerance
+    object <- mutate_ms2(
+      object = object,
+      path = mgf_dirs,
+      ms1.ms2.match.mz.tol = peak_align_tolerance
     )
   }
 
@@ -772,18 +1007,24 @@ read_imzml <- function(path_1 = "input",
     object = object,
     function_name = "read_imzml()",
     parameter = list(
-      input = imzml_file,
+      input = imzml_files,
+      n_section = length(imzml_files),
       peak_align_tolerance = peak_align_tolerance,
       n_variable = nrow(object@variable_info),
       n_sample = nrow(object@sample_info),
-      n_ms2 = length(object@ms2_data),
+      n_ms2 = if (!is.null(object@ms2_data$ms2_table)) {
+        length(unique(object@ms2_data$ms2_table$ms2_id))
+      } else {
+        length(object@ms2_data)
+      },
       bin_digits = bin_digits,
       max_features = max_features,
       chunk_size = chunk_size,
       parallel_backend = parallel_backend,
       workers = workers,
-      cache_hit = cache_hit,
-      cache_dir = cache_dir,
+      progress = progress,
+      cache_hit = vapply(section_data, function(x) isTRUE(x$cache_hit), logical(1)),
+      cache_dir = unique(vapply(section_data, function(x) x$cache_dir, character(1))),
       resolution = resolution,
       matrix_name = matrix_name
     )
@@ -792,9 +1033,14 @@ read_imzml <- function(path_1 = "input",
   output_file <- path_2
   if (dir.exists(path_2) || !grepl("\\.rds$", path_2, ignore.case = TRUE)) {
     dir.create(path_2, recursive = TRUE, showWarnings = FALSE)
+    out_stub <- if (length(imzml_files) == 1) {
+      file_path_sans_ext(basename(imzml_files[[1]]))
+    } else {
+      paste0("multi_section_", length(imzml_files), "sections")
+    }
     output_file <- file.path(
       path_2,
-      paste0(file_path_sans_ext(basename(imzml_file)), "_msidataset.rds")
+      paste0(out_stub, "_msidataset.rds")
     )
   }
   saveRDS(object, output_file)

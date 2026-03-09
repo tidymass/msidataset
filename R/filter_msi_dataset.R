@@ -29,6 +29,11 @@ filter_msi_dataset <- function(object,
                                target = "sample_info",
                                filter_type = NULL,
                                ...) {
+  # Step 1: validate input
+  # Step 2: compute mask (by filter_type)
+  # Step 3: subset expression_data
+  # Step 4: update pixel_info (sample_info) / variable_info
+  # Step 5: run validObject()
   
   if (!methods::is(object, "msi_dataset"))
     stop("object must be a msi_dataset.")
@@ -45,7 +50,7 @@ filter_msi_dataset <- function(object,
   } else if (target == "variable_info") {
     object <- filter_variables_comprehensive(object, filter_type = filter_type, ...)
   }
-  
+  methods::validObject(object)
   return(object)
 }
 

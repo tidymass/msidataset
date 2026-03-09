@@ -347,7 +347,7 @@ plot_spatial_correlation <- function(msi_filtered,
   
   # ========== 创建X相关性图 ==========
   p1 <- ggplot(plot_data, aes(x = mz, y = cor_x)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", size = 0.5) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.5) +
     geom_hline(yintercept = c(-0.5, 0.5), linetype = "dotted", 
                color = "gray70", size = 0.3, alpha = 0.5) +
     geom_point(aes(color = abs_cor_x, 
@@ -395,7 +395,7 @@ plot_spatial_correlation <- function(msi_filtered,
   
   # ========== 创建Y相关性图 ==========
   p2 <- ggplot(plot_data, aes(x = mz, y = cor_y)) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", size = 0.5) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50", linewidth = 0.5) +
     geom_hline(yintercept = c(-0.5, 0.5), linetype = "dotted", 
                color = "gray70", size = 0.3, alpha = 0.5) +
     geom_point(aes(color = abs_cor_y, 

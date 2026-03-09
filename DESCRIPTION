@@ -17,6 +17,7 @@ Depends:
     Cardinal (>= 3.0.0)
 Imports: 
     Cardinal,
+    cli,
     massdataset,
     methods,
     stats,
@@ -31,7 +32,10 @@ Suggests:
     knitr,
     rmarkdown,
     ggplot2,
-    BiocManager
+    BiocManager,
+    igraph,
+    ggraph,
+    progressr
 VignetteBuilder: knitr
 URL: https://github.com/tidymass/msidataset
 BugReports: https://github.com/tidymass/msidataset/issues

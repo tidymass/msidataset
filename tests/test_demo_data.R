@@ -2,8 +2,14 @@
 # MSI Demo Workflow (Comprehensive API smoke demo)
 # Data path: D:/Shen_lab/msidataset/data/demo data/
 ###############################################################################
-# devtools::document()
-# devtools::install()
+devtools::document()
+devtools::load_all()
+
+devtools::test()
+devtools::check()
+
+#devtools::document()
+#devtools::install()
 
 safe_run <- function(label, expr, default = NULL) {
   cat("\n---", label, "---\n")
@@ -71,8 +77,8 @@ safe_save_plot <- function(plot_obj, filename, width = 8, height = 6, dpi = 150)
 library(msidataset)
 library(methods)
 
-demo_dir <- "D:/Shen_lab/msidataset/data/demo data"
-output_dir <- "D:/Shen_lab/msidataset/results"
+demo_dir <- file.path(getwd(), "data", "demo data")
+output_dir <- file.path(getwd(), "results")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 log_file <- file.path(output_dir, "test_demo_data_console_log.txt")
 zz <- file(log_file, open = "wt")
@@ -85,19 +91,41 @@ on.exit({
 # ====================
 # Step 2. Data import
 # ====================
-msi_obj <- safe_run(
-  "read_imzml()",
+msi_obj_03 <- safe_run(
+  "read_imzml(03-total ion count.imzML)",
   read_imzml(
-    path_1 = demo_dir,
+    path_1 = file.path(demo_dir, "03-total ion count.imzML"),
     peak_align_tolerance = 50,
     path_2 = output_dir,
+    progress = interactive(),
+    resolution = 50,
+    matrix_name = "CHCA"
+  )
+)
+msi_obj_04 <- safe_run(
+  "read_imzml(04-total ion count.imzML)",
+  read_imzml(
+    path_1 = file.path(demo_dir, "04-total ion count.imzML"),
+    peak_align_tolerance = 50,
+    path_2 = output_dir,
+    progress = interactive(),
     resolution = 50,
     matrix_name = "CHCA"
   )
 )
 
-if (is.null(msi_obj) || !methods::is(msi_obj, "msi_dataset")) {
+if (is.null(msi_obj_03) || !methods::is(msi_obj_03, "msi_dataset") ||
+    is.null(msi_obj_04) || !methods::is(msi_obj_04, "msi_dataset")) {
   stop("read_imzml failed; cannot continue demo.")
+}
+
+msi_obj <- safe_run(
+  "merge_msi_datasets()",
+  merge_msi_datasets(msi_obj_03, msi_obj_04)
+)
+
+if (is.null(msi_obj) || !methods::is(msi_obj, "msi_dataset")) {
+  stop("merge_msi_datasets failed; cannot continue demo.")
 }
 
 # ==========================================
@@ -137,6 +165,10 @@ safe_run("get_sample_id()", print(utils::head(get_sample_id(msi_obj))))
 safe_run("get_variable_id()", print(utils::head(get_variable_id(msi_obj))))
 safe_run("get_spatial_coords()", print(utils::head(get_spatial_coords(msi_obj))))
 safe_run("get_section_ids()", print(get_section_ids(msi_obj)))
+safe_run("sample_id format check", {
+  sid <- get_sample_id(msi_obj)
+  print(all(grepl("^spectrum_[0-9]+$", sid)))
+})
 
 section_ids <- unique(as.character(sinfo$section_id))
 if (length(section_ids) > 0) {
@@ -189,6 +221,82 @@ safe_run("ms2_data<-", {
   ms2_data(msi_obj) <- ms2_data(msi_obj)
   print(length(ms2_data(msi_obj)))
 })
+safe_run("extract_ms2(ms2_info)", {
+  print(utils::head(extract_ms2(msi_obj, what = "ms2_info")))
+})
+safe_run("mutate_ms2()", {
+  msi_obj <<- mutate_ms2(
+    object = msi_obj,
+    path = c(
+      file.path(demo_dir, "CHCA-neg-ms2-10ev_MSMS191.0200.mgf"),
+      file.path(demo_dir, "NEDC-neg-ms2-10ev_MSMS130.0600.mgf"),
+      file.path(demo_dir, "CHCA-neg-ms2-10ev_MSMS306.0700.mgf")
+    ),
+    ms1.ms2.match.mz.tol = 50
+  )
+  print(nrow(extract_ms2(msi_obj, what = "ms2_info")))
+})
+safe_run("filter_ms2()", {
+  msi_obj <<- filter_ms2(msi_obj, precursor_mz >= 100, precursor_mz <= 400)
+  print(nrow(extract_ms2(msi_obj, what = "ms2_info")))
+})
+
+safe_run("generate_pseudo_ms2()", {
+  msi_obj <<- generate_pseudo_ms2(
+    object = msi_obj,
+    precursor_mz = c(151.02, 289.13),
+    ppm = 10,
+    correlation_method = "spearman",
+    correlation_threshold = 0.3,
+    top_n = 20
+  )
+  print(utils::head(msi_obj@ms2_data$pseudo_ms2_table))
+})
+
+safe_run("detect_joint_fragments()", {
+  msi_obj <<- detect_joint_fragments(
+    object = msi_obj,
+    precursor_mz = c(151.02, 289.13),
+    ppm = 10,
+    correlation_method = "spearman"
+  )
+  print(utils::head(msi_obj@ms2_data$fragment_candidates))
+})
+
+safe_run("build_fragment_network()", {
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+    cat("Skip: igraph not installed.\n")
+  } else {
+    msi_obj <<- build_fragment_network(msi_obj, top_k = 10)
+    print(msi_obj@other_files$pseudo_fragment_network)
+  }
+})
+
+p_targeted_pseudo <- safe_run(
+  "plot_pseudo_ms2(targeted)",
+  plot_pseudo_ms2(msi_obj, mz = 151.02, tolerance_ppm = 10)
+)
+safe_plot("plot_pseudo_ms2(targeted)", p_targeted_pseudo)
+safe_save_plot(p_targeted_pseudo, "plot_pseudo_ms2_targeted.png")
+
+p_spatial_fragment <- safe_run(
+  "plot_spatial_fragment()",
+  plot_spatial_fragment(msi_obj, precursor_mz = 151.02, ppm = 10)
+)
+safe_plot("plot_spatial_fragment()", p_spatial_fragment)
+safe_save_plot(p_spatial_fragment, "plot_spatial_fragment_targeted.png")
+
+p_fragment_network <- safe_run(
+  "plot_fragment_network()",
+  {
+    if (!requireNamespace("ggraph", quietly = TRUE)) {
+      stop("ggraph not installed.")
+    }
+    plot_fragment_network(msi_obj)
+  }
+)
+safe_plot("plot_fragment_network()", p_fragment_network)
+safe_save_plot(p_fragment_network, "plot_fragment_network.png")
 
 # ==========================================
 # Step 5. Notes, IDs, constructor checks

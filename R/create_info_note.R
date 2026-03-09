@@ -79,7 +79,10 @@ create_enhanced_variable_info_note <- function(msi_object) {
     
     mz = "Mass-to-charge ratio. The core variable in mass spectrometry data, representing the ratio of an ion's mass to its charge number.",
     
-    ms2 = "MS2 availability indicator (yes or no). Indicates whether tandem mass spectrometry (MS2) fragmentation data is available for this m/z feature."
+    ms2 = "Legacy MS2 availability indicator (Yes/no).",
+    has_ms2 = "MS2 availability indicator (yes/no). Indicates whether tandem mass spectrometry (MS2) data is linked to this precursor feature.",
+    ms2_id = "Linked MS2 spectrum identifier(s) for this precursor feature. Multiple IDs are ';' separated.",
+    ms2_type = "Type of linked MS2 information for this precursor feature. Values include 'actual' and/or 'pseudo'."
   )
   
   .default_info_note(msi_object@variable_info, meaning_map = standard_meanings)

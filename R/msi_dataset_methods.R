@@ -307,12 +307,56 @@ update_msi_dataset <- function(object) {
     stop("object must be a msi_dataset.")
   }
 
-  sample_info <- .normalize_sample_info(object@sample_info)
+  old_sample_info <- as.data.frame(object@sample_info, stringsAsFactors = FALSE,
+                                   check.names = FALSE)
+  old_sample_id <- if ("sample_id" %in% colnames(old_sample_info)) {
+    as.character(old_sample_info$sample_id)
+  } else {
+    character()
+  }
+
+  sample_info <- .normalize_sample_info(old_sample_info)
+  new_sample_id <- as.character(sample_info$sample_id)
   variable_info <- .normalize_variable_info(object@variable_info)
   expression_data <- object@expression_data
 
+  if (length(old_sample_id) == length(new_sample_id) && length(new_sample_id) > 0) {
+    rename_map <- setNames(new_sample_id, old_sample_id)
+    old_colnames <- colnames(expression_data)
+    if (!is.null(old_colnames)) {
+      hit <- old_colnames %in% names(rename_map)
+      old_colnames[hit] <- unname(rename_map[old_colnames[hit]])
+      colnames(expression_data) <- old_colnames
+    }
+
+    roi_set <- object@other_files$roi
+    if (!is.null(roi_set) && methods::is(roi_set, "msi_roi_set")) {
+      for (i in seq_along(roi_set@rois)) {
+        roi_ids <- roi_set@rois[[i]]@sample_id
+        hit <- roi_ids %in% names(rename_map)
+        roi_ids[hit] <- unname(rename_map[roi_ids[hit]])
+        roi_set@rois[[i]]@sample_id <- unique(as.character(roi_ids))
+      }
+      object@other_files$roi <- roi_set
+    }
+  }
+
   intersect_sample_id <- intersect(sample_info$sample_id, colnames(expression_data))
   intersect_variable_id <- intersect(variable_info$variable_id, rownames(expression_data))
+
+  # If IDs are fully mismatched but dimensions still align, repair dimnames by position.
+  if (length(intersect_sample_id) == 0 &&
+      ncol(expression_data) == nrow(sample_info) &&
+      nrow(sample_info) > 0) {
+    colnames(expression_data) <- as.character(sample_info$sample_id)
+    intersect_sample_id <- as.character(sample_info$sample_id)
+  }
+  if (length(intersect_variable_id) == 0 &&
+      nrow(expression_data) == nrow(variable_info) &&
+      nrow(variable_info) > 0) {
+    rownames(expression_data) <- as.character(variable_info$variable_id)
+    intersect_variable_id <- as.character(variable_info$variable_id)
+  }
 
   expression_data <- expression_data[intersect_variable_id, intersect_sample_id, drop = FALSE]
   sample_info <- sample_info[match(intersect_sample_id, sample_info$sample_id), , drop = FALSE]
@@ -330,7 +374,9 @@ update_msi_dataset <- function(object) {
   object <- add_process_log(
     object = object,
     function_name = "update_msi_dataset()",
-    parameter = list(no = "no")
+    parameter = list(
+      sample_id_standardized = !identical(old_sample_id, new_sample_id)
+    )
   )
   
   ## validate

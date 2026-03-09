@@ -486,7 +486,11 @@ ms2_spatial_map <- function(object, mode = c("binary", "count"), plot = TRUE) {
   stopifnot(methods::is(object, "msi_dataset"))
   mode <- match.arg(mode)
 
-  ms2_flags <- object@variable_info$ms2 %in% c("Yes", "yes", TRUE, 1)
+  ms2_flags <- if ("has_ms2" %in% colnames(object@variable_info)) {
+    object@variable_info$has_ms2 %in% c("Yes", "yes", TRUE, 1)
+  } else {
+    object@variable_info$ms2 %in% c("Yes", "yes", TRUE, 1)
+  }
   if (!any(ms2_flags)) {
     out <- .intensity_df(object, rep(0, ncol(object@expression_data)))
   } else {
