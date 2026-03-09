@@ -1,4 +1,10 @@
 data/
+results/
+msidataset_results/
+.msidataset_cache/
+*.rds
+*.ibd
+*.imzML
 .Rproj.user
 .Rhistory
 .RData

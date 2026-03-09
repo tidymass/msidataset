@@ -6,7 +6,7 @@
 \usage{
 read_imzml(
   path_1 = "input",
-  peak_align_tolerance = 50,
+  peak_align_tolerance = 10,
   path_2 = "output",
   bin_digits = 4,
   max_features = 150000,
@@ -16,12 +16,13 @@ read_imzml(
   workers = 1,
   use_cache = TRUE,
   cache_dir = NULL,
+  progress = interactive(),
   resolution = NA_real_,
   matrix_name = NA_character_
 )
 }
 \arguments{
-\item{path_1}{Character. Input path. Either:
+\item{path_1}{Character vector. Input path(s). Each element can be:
 \enumerate{
 \item full path to one \code{.imzML} file, or
 \item directory containing at least one \code{.imzML} file.
@@ -53,6 +54,8 @@ precision automatically if exceeded.}
 
 \item{cache_dir}{Character directory used to store/read alignment cache.}
 
+\item{progress}{Logical. Show real-time progress for major import stages.}
+
 \item{resolution}{Numeric. Spatial resolution (for example, micrometers per
 pixel) to write into \code{sample_info$resolution}.}
 
@@ -63,10 +66,10 @@ pixel) to write into \code{sample_info$resolution}.}
 An object of class \code{msi_dataset}.
 }
 \description{
-Read MSI data from an \code{imzML} file (or directory containing one), construct an
+Read MSI data from one or more \code{imzML} files, construct an
 \code{msi_dataset} object, parse optional MGF MS2 spectra, and save the resulting
 object to disk. The function auto-populates MSI-specific \code{sample_info}
-including \code{x}, \code{y}, and \code{z} coordinates.
+including \code{x}, \code{y}, and section-level \code{z} coordinates.
 
 Coordinate system convention: pixel coordinates are treated as 1-based image
 coordinates where \verb{(x = 1, y = 1)} corresponds to the top-left position.

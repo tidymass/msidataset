@@ -2,14 +2,12 @@
 # MSI Demo Workflow (Comprehensive API smoke demo)
 # Data path: D:/Shen_lab/msidataset/data/demo data/
 ###############################################################################
+#devtools::test()
+#devtools::check()
+
 devtools::document()
 devtools::load_all()
-
-devtools::test()
-devtools::check()
-
-#devtools::document()
-#devtools::install()
+devtools::install()
 
 safe_run <- function(label, expr, default = NULL) {
   cat("\n---", label, "---\n")
