@@ -53,14 +53,13 @@ test_that("generate_pseudo_ms2 stores targeted pseudo fragments across sections"
   expect_valid_msi(out)
   expect_true("pseudo_ms2_table" %in% names(out@ms2_data))
   tbl <- out@ms2_data$pseudo_ms2_table
-  expect_true(all(c(
-    "pseudo_ms2_id", "precursor_mz", "fragment_mz", "fragment_variable_id",
-    "correlation", "fragment_intensity", "score", "normalized_intensity",
-    "slice_consistency", "ms2_type"
-  ) %in% colnames(tbl)))
-  expect_true("pseudo_intensity" %in% colnames(tbl))
-  expect_true("confidence_score" %in% colnames(tbl))
-  expect_true(all(tbl$ms2_type == "pseudo"))
+  expected_cols <- c(
+    "precursor_mz", "fragment_mz", "correlation",
+    "pseudo_intensity", "confidence_score"
+  )
+  expect_true(all(expected_cols %in% colnames(tbl)))
+  expect_equal(sort(colnames(tbl)), sort(expected_cols))
+  expect_false("rt" %in% colnames(tbl))
   expect_true(all(tbl$fragment_mz < tbl$precursor_mz))
   expect_true(any(tbl$precursor_mz == 151.02))
   expect_true(any(tbl$precursor_mz == 289.13))

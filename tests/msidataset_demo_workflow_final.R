@@ -105,9 +105,6 @@ if (methods::is(msi_obj_04, "msi_dataset")) {
 
 cat("\n")
 
-# ============================================================================
-# 3. Merge two datasets
-# ============================================================================
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 cat("Step 3: Merging imzML data\n")
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
@@ -249,11 +246,77 @@ print(pseudo_ms2_table)
 
 cat("\n")
 
+cat("==============================\n")
+cat("Pseudo-MS2 Results\n")
+cat("==============================\n\n")
+print(utils::head(msi_obj@ms2_data$pseudo_ms2_table))
+cat("\n")
+
+cat("Calculating pseudo-MS2 fragment confidence and plotting scores...\n")
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  stop("ggplot2 is required for pseudo-MS2 confidence visualization.")
+}
+pseudo_table <- msi_obj@ms2_data$pseudo_ms2_table
+p_conf <- ggplot2::ggplot(
+  pseudo_table,
+  ggplot2::aes(x = fragment_mz, y = confidence_score)
+) +
+  ggplot2::geom_point(color = "#1f77b4", size = 2) +
+  ggplot2::labs(
+    title = "Pseudo-MS2 Fragment Confidence",
+    x = "Fragment m/z",
+    y = "Confidence Score"
+  ) +
+  ggplot2::theme_minimal()
+print(p_conf)
+cat("\n")
+
 # ============================================================================
-# 8. Detect joint fragments
+# 8. Benchmark pseudo-MS2
 # ============================================================================
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-cat("Step 8: Detecting joint fragments\n")
+cat("Step 8: Benchmarking pseudo-MS2\n")
+cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+benchmark_ms2 <- data.frame(
+  precursor_mz = pseudo_ms2_table$precursor_mz,
+  fragment_mz = pseudo_ms2_table$fragment_mz,
+  intensity = pseudo_ms2_table$pseudo_intensity,
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+msi_obj <- benchmark_pseudo_ms2(
+  object = msi_obj,
+  experimental_ms2 = benchmark_ms2,
+  ppm = 10
+)
+
+cat("Pseudo-MS2 benchmark summary:\n")
+print(msi_obj@ms2_data$pseudo_ms2_benchmark)
+
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  p_bench <- plot_pseudo_ms2_benchmark(msi_obj)
+  filename_bench <- file.path(output_dir, "pseudo_ms2_benchmark.png")
+  ggplot2::ggsave(
+    filename = filename_bench,
+    plot = p_bench,
+    width = 8,
+    height = 6,
+    dpi = 150
+  )
+  cat(sprintf("  ✓ Benchmark plot saved: %s\n", basename(filename_bench)))
+} else {
+  cat("  ⚠ ggplot2 is required for benchmark plots; skipping figure.\n")
+}
+
+cat("\n")
+
+# ============================================================================
+# 9. Detect joint fragments
+# ============================================================================
+cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+cat("Step 9: Detecting joint fragments\n")
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 cat(sprintf("Detecting joint fragments for m/z = %s...\n", paste(example_mz, collapse = ", ")))
@@ -276,10 +339,10 @@ if (!is.null(msi_obj@ms2_data$fragment_candidates)) {
 cat("\n")
 
 # ============================================================================
-# 9. Build fragment network
+# 10. Build fragment network
 # ============================================================================
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-cat("Step 9: Building fragment network\n")
+cat("Step 10: Building fragment network\n")
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 if (requireNamespace("igraph", quietly = TRUE)) {
@@ -293,10 +356,10 @@ if (requireNamespace("igraph", quietly = TRUE)) {
 cat("\n")
 
 # ============================================================================
-# 10. Visualize pseudo-MS2
+# 11. Visualize pseudo-MS2
 # ============================================================================
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-cat("Step 10: Visualization\n")
+cat("Step 11: Visualization\n")
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
 
 # Plot pseudo-MS2
@@ -595,11 +658,22 @@ sink()
 cat("✓ Saved to: analysis_summary.txt\n\n")
 
 # ============================================================================
-# 13. Demonstration complete
+# 14. Demonstration complete
 # ============================================================================
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 cat("Demonstration complete!\n")
 cat("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+
+cat("=====================================\n")
+cat("msidataset Pseudo-MS2 Pipeline Completed\n")
+cat("=====================================\n")
+cat("Steps executed:\n")
+cat("1. MSI data import\n")
+cat("2. MSI dataset conversion and merging\n")
+cat("3. pseudo-MS2 reconstruction\n")
+cat("4. fragment scoring (cosine similarity + neutral loss)\n")
+cat("5. fragmentation confidence estimation\n")
+cat("6. pseudo-MS2 benchmarking\n\n")
 
 cat("✓ Completed tasks:\n")
 cat(" 1. ✓ Read two imzML files using read_imzml()\n")

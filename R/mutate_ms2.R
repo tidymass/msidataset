@@ -1379,7 +1379,61 @@ generate_pseudo_ms2 <- function(object,
     retained[[col]] <- NA_real_
   }
 
-  object@ms2_data$pseudo_ms2_table <- retained
+  expr <- as.matrix(object@expression_data)
+  vinfo <- object@variable_info
+  precursor_map <- match(retained$precursor_variable_id, vinfo$variable_id)
+  fragment_map <- match(retained$fragment_variable_id, vinfo$variable_id)
+  cosine_scores <- rep(NA_real_, nrow(retained))
+  valid_pairs <- which(!is.na(precursor_map) & !is.na(fragment_map))
+  if (length(valid_pairs) > 0) {
+    for (idx in valid_pairs) {
+      cosine_scores[idx] <- cosine_similarity(
+        expr[precursor_map[idx], ],
+        expr[fragment_map[idx], ]
+      )
+    }
+  }
+  spatial_scores <- (retained$correlation + cosine_scores) / 2
+  neutral_losses <- c(18.0106, 17.0265, 28.0313, 44.0095, 46.0055)
+  deltas <- retained$precursor_mz - retained$fragment_mz
+  neutral_diffs <- vapply(deltas, function(diff) {
+    if (!is.finite(diff)) {
+      return(Inf)
+    }
+    min(abs(diff - neutral_losses))
+  }, numeric(1))
+  neutral_loss_scores <- exp(-neutral_diffs / 0.01)
+  pseudo_intensity_vals <- as.numeric(retained$pseudo_intensity)
+  pseudo_intensity_vals[is.na(pseudo_intensity_vals)] <- 0
+  log_intensity <- log1p(pmax(pseudo_intensity_vals, 0))
+  raw_confidence <- 0.5 * spatial_scores +
+    0.3 * neutral_loss_scores +
+    0.2 * log_intensity
+  finite_confidence <- ifelse(is.finite(raw_confidence), raw_confidence, NA_real_)
+  max_confidence <- suppressWarnings(max(finite_confidence, na.rm = TRUE))
+  if (!is.finite(max_confidence) || max_confidence == 0) {
+    max_confidence <- 1
+  }
+  normalized_confidence <- finite_confidence / max_confidence
+  normalized_confidence[is.na(finite_confidence)] <- NA_real_
+  retained$cosine_score <- cosine_scores
+  retained$spatial_score <- spatial_scores
+  retained$neutral_loss_score <- neutral_loss_scores
+  retained$confidence_score <- normalized_confidence
+
+  pseudo_schema_cols <- c(
+    "precursor_mz", "fragment_mz", "correlation",
+    "pseudo_intensity", "confidence_score"
+  )
+  for (col in pseudo_schema_cols) {
+    if (!col %in% colnames(retained)) {
+      retained[[col]] <- NA_real_
+    }
+  }
+  pseudo_view <- retained[, pseudo_schema_cols, drop = FALSE]
+
+  object@ms2_data$pseudo_ms2_table <- pseudo_view
+  stopifnot(!"rt" %in% colnames(object@ms2_data$pseudo_ms2_table))
   object@ms2_data$targeted_pseudo_ms2_table <- retained
   corr_tbl <- retained[, c(
     "precursor_variable_id", "precursor_mz", "fragment_mz",
@@ -1934,12 +1988,11 @@ mirror_plot <- function(object, ms2_id, pseudo_ms2_id) {
 #' @param ... Additional arguments passed to \code{infer_pseudo_ms2()}.
 #' @return Updated \code{msi_dataset} with benchmark table stored in
 #'   \code{other_files$pseudo_ms2_benchmark}.
-#' @export
-benchmark_pseudo_ms2 <- function(object,
-                                 ms2_library = NULL,
-                                 ppm = 10,
-                                 tolerance = 0.01,
-                                 ...) {
+.benchmark_pseudo_ms2_actual <- function(object,
+                                        ms2_library = NULL,
+                                        ppm = 10,
+                                        tolerance = 0.01,
+                                        ...) {
   if (!methods::is(object, "msi_dataset")) {
     stop("object must be a msi_dataset.")
   }
@@ -2037,15 +2090,6 @@ benchmark_pseudo_ms2 <- function(object,
   }
 
   object@other_files$pseudo_ms2_benchmark <- bench_tbl
-  object <- add_process_log(
-    object = object,
-    function_name = "benchmark_pseudo_ms2()",
-    parameter = list(
-      n_precursor = nrow(bench_tbl),
-      ppm = ppm,
-      tolerance = tolerance
-    )
-  )
   object
 }
 
@@ -2135,7 +2179,14 @@ plot_spatial_fragment <- function(object,
     stop("Requested precursor_mz was not found in pseudo_ms2_table.")
   }
   if (is.null(fragment_mz)) {
-    rank_col <- if ("score" %in% colnames(sub)) "score" else "normalized_intensity"
+    rank_col <- if ("score" %in% colnames(sub)) {
+      "score"
+    } else if ("normalized_intensity" %in% colnames(sub)) {
+      "normalized_intensity"
+    } else {
+      "correlation"
+    }
+    sub[[rank_col]] <- as.numeric(sub[[rank_col]])
     sub <- sub[order(sub[[rank_col]], decreasing = TRUE), , drop = FALSE]
     fragment_mz <- sub$fragment_mz[[1]]
   }
