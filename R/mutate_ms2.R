@@ -1161,7 +1161,7 @@ plot_ms2_network <- function(graph, layout = "fr") {
       size = 3
     ) +
     ggplot2::scale_color_manual(values = c(precursor = "#d7301f", fragment = "#2b8cbe")) +
-    ggplot2::scale_edge_width(range = c(0.2, 1.5)) +
+    ggraph::scale_edge_width(range = c(0.2, 1.5)) +
     ggplot2::theme_void() +
     ggplot2::labs(
       title = "MS2 Fragment Network",
@@ -1244,6 +1244,7 @@ plot_ms2_network <- function(graph, layout = "fr") {
     precursor_mz = numeric(),
     fragment_variable_id = character(),
     fragment_mz = numeric(),
+    fragment_intensity = numeric(),
     spatial_corr = numeric(),
     spectral_score = numeric(),
     intensity_score = numeric(),
@@ -1255,185 +1256,138 @@ plot_ms2_network <- function(graph, layout = "fr") {
 
 .neutral_loss_score <- function(delta_mz,
                                 losses = c(18, 28, 44),
-                                sigma = 5) {
+                                sigma = 1) {
   delta_mz <- as.numeric(delta_mz)
-  if (!is.finite(delta_mz)) {
+  if (!is.finite(delta_mz) || !is.numeric(sigma) || sigma <= 0) {
     return(0)
   }
-  max(exp(-abs(delta_mz - losses) / sigma), na.rm = TRUE)
+  delta_vec <- abs(delta_mz - losses)
+  max(exp(-delta_vec / sigma), na.rm = TRUE)
 }
 
-#' Generate targeted pseudo-MS2 spectra
+#' Generate pseudo-MS2 spectra for target precursors
+#'
+#' This wrapper delegates to \code{infer_pseudo_ms2()} and keeps the top-ranked
+#' fragments per precursor, storing the result inside
+#' \code{ms2_data$pseudo_ms2_table}.
 #'
 #' @param object A \code{msi_dataset} object.
 #' @param precursor_mz Numeric precursor m/z target vector.
 #' @param ppm Numeric precursor matching tolerance.
-#' @param correlation_method Spatial correlation method.
-#' @param correlation_threshold Minimum final correlation.
-#' @param top_n Maximum fragment count per precursor.
-#' @return Updated \code{msi_dataset} with targeted pseudo-MS2 results stored in
+#' @param top_n Maximum fragments retained per precursor.
+#' @param method Spatial correlation method.
+#' @return Updated \code{msi_dataset} with pseudo-MS2 results stored in
 #'   \code{ms2_data$pseudo_ms2_table}.
 #' @export
 generate_pseudo_ms2 <- function(object,
                                 precursor_mz,
                                 ppm = 10,
-                                correlation_method = c("spearman", "pearson"),
-                                correlation_threshold = 0.3,
-                                top_n = 20) {
+                                top_n = 20,
+                                method = c("spearman", "pearson")) {
   if (!methods::is(object, "msi_dataset")) {
     stop("object must be a msi_dataset.")
   }
-  correlation_method <- match.arg(correlation_method)
+  method <- match.arg(method)
   precursor_mz <- as.numeric(precursor_mz)
   precursor_mz <- precursor_mz[is.finite(precursor_mz)]
   if (length(precursor_mz) == 0) {
     stop("precursor_mz must contain at least one finite numeric value.")
   }
 
-  vinfo <- object@variable_info
-  expr <- as.matrix(object@expression_data)
-  if (nrow(expr) != nrow(vinfo)) {
-    stop("expression_data and variable_info are not aligned.")
-  }
+  object <- infer_pseudo_ms2(
+    object = object,
+    mz = precursor_mz,
+    tolerance_ppm = ppm,
+    correlation_method = method,
+    correlation_threshold = -Inf,
+    adaptive_threshold = FALSE,
+    fragment_intensity_threshold = 0,
+    fallback_top_n = max(1L, as.integer(top_n)),
+    replace_existing_pseudo = TRUE
+  )
 
-  precursor_idx <- .target_precursor_indices(vinfo, precursor_mz = precursor_mz, ppm = ppm)
-  if (length(precursor_idx) == 0) {
-    warning("No precursor features matched the requested precursor_mz values.")
-    object@ms2_data$pseudo_ms2_table <- .empty_pseudo_fragment_table()
+  pseudo_tbl <- object@ms2_data$pseudo_ms2_table
+  if (is.null(pseudo_tbl) || nrow(as.data.frame(pseudo_tbl)) == 0) {
     object@ms2_data$targeted_pseudo_ms2_table <- .empty_pseudo_fragment_table()
+    object@ms2_data$pseudo_correlation_table <- .empty_pseudo_fragment_table()
     return(object)
   }
+  pseudo_df <- as.data.frame(pseudo_tbl, stringsAsFactors = FALSE, check.names = FALSE)
+  if (!"correlation" %in% colnames(pseudo_df)) {
+    pseudo_df$correlation <- NA_real_
+  }
+  pseudo_df$correlation <- as.numeric(pseudo_df$correlation)
 
-  ms2_table <- .get_ms2_table(object)
-  if (nrow(ms2_table) > 0) {
-    keep <- !(ms2_table$ms2_type %in% c("pseudo", "pseudo_candidate") &
-      ms2_table$precursor_variable_id %in% as.character(vinfo$variable_id[precursor_idx]))
-    ms2_table <- ms2_table[keep, , drop = FALSE]
+  grouped <- split(pseudo_df, pseudo_df$precursor_mz)
+  retained <- do.call(rbind, lapply(grouped, function(df) {
+    df$correlation <- as.numeric(df$correlation)
+    if (!is.numeric(df$correlation)) {
+      df$correlation <- as.numeric(unlist(df$correlation))
+    }
+    ord <- order(df$correlation, decreasing = TRUE)
+    if (length(ord) == 0) {
+      return(df[0, , drop = FALSE])
+    }
+    df <- df[ord, , drop = FALSE]
+    utils::head(df, max(1L, as.integer(top_n)))
+  }))
+
+  if (nrow(retained) == 0) {
+    retained <- pseudo_df[0, , drop = FALSE]
   }
 
-  section_id <- if ("section_id" %in% colnames(object@sample_info)) {
-    as.character(object@sample_info$section_id)
-  } else {
-    rep("section_1", ncol(expr))
+  if (!"pseudo_intensity" %in% colnames(retained) && "fragment_intensity" %in% colnames(retained)) {
+    retained$pseudo_intensity <- retained$fragment_intensity
+  } else if (!"pseudo_intensity" %in% colnames(retained)) {
+    retained$pseudo_intensity <- NA_real_
   }
 
-  pseudo_rows <- list()
-  ms2_rows <- list()
-  for (i in precursor_idx) {
-    precursor_id <- as.character(vinfo$variable_id[[i]])
-    pmz <- as.numeric(vinfo$mz[[i]])
-    precursor_vec <- as.numeric(expr[i, ])
-    exclusion_tol <- max(pmz * as.numeric(ppm) / 1e6, 1e-8)
-    cand_idx <- which(
-      as.numeric(vinfo$mz) < pmz &
-        abs(as.numeric(vinfo$mz) - pmz) > exclusion_tol
-    )
-    if (length(cand_idx) == 0) {
-      next
-    }
+  if (!"confidence_score" %in% colnames(retained)) {
+    retained$confidence_score <- NA_real_
+  }
 
-    cand_tbl <- lapply(cand_idx, function(j) {
-      frag_vec <- as.numeric(expr[j, ])
-      corr_slice <- .section_correlation(
-        precursor_vec = precursor_vec,
-        fragment_vec = frag_vec,
-        section_id = section_id,
-        correlation_method = correlation_method
-      )
-      corr_valid <- corr_slice[is.finite(corr_slice)]
-      if (length(corr_valid) == 0) {
-        return(NULL)
-      }
-      corr_final <- mean(corr_valid, na.rm = TRUE)
-      mean_corr <- mean(corr_valid, na.rm = TRUE)
-      slice_consistency <- if (!is.finite(mean_corr) || mean_corr <= 0) {
-        0
-      } else {
-        1 - stats::sd(corr_valid, na.rm = TRUE) / (mean_corr + 1e-12)
-      }
-      if (!is.finite(slice_consistency)) {
-        slice_consistency <- 0
-      }
-      slice_consistency <- max(0, min(1, slice_consistency))
-
-      frag_int <- mean(frag_vec[is.finite(frag_vec)], na.rm = TRUE)
-      if (!is.finite(frag_int)) {
-        frag_int <- 0
-      }
-      score <- as.numeric(corr_final) * log1p(as.numeric(frag_int)) * slice_consistency
-      data.frame(
-        pseudo_ms2_id = paste0("pseudo_", precursor_id),
-        precursor_variable_id = precursor_id,
-        precursor_mz = pmz,
-        fragment_mz = as.numeric(vinfo$mz[[j]]),
-        fragment_variable_id = as.character(vinfo$variable_id[[j]]),
-        correlation = as.numeric(corr_final),
-        fragment_intensity = as.numeric(frag_int),
-        score = as.numeric(score),
-        normalized_intensity = NA_real_,
-        slice_consistency = as.numeric(slice_consistency),
-        ms2_type = "pseudo",
-        stringsAsFactors = FALSE,
-        check.names = FALSE
-      )
-    })
-
-    cand_tbl <- do.call(rbind, cand_tbl)
-    if (is.null(cand_tbl) || nrow(cand_tbl) == 0) {
-      next
-    }
-    cand_tbl <- cand_tbl[is.finite(cand_tbl$correlation), , drop = FALSE]
-    cand_tbl <- cand_tbl[cand_tbl$correlation >= as.numeric(correlation_threshold), , drop = FALSE]
-    if (nrow(cand_tbl) == 0) {
-      next
-    }
-    cand_tbl <- cand_tbl[order(cand_tbl$score, decreasing = TRUE), , drop = FALSE]
-    cand_tbl <- utils::head(cand_tbl, max(1L, as.integer(top_n)))
-    max_score <- max(cand_tbl$score, na.rm = TRUE)
-    cand_tbl$normalized_intensity <- if (is.finite(max_score) && max_score > 0) {
-      cand_tbl$score / max_score
+  if (!"pseudo_ms2_id" %in% colnames(retained)) {
+    if ("precursor_variable_id" %in% colnames(retained)) {
+      retained$pseudo_ms2_id <- paste0("pseudo_", retained$precursor_variable_id)
     } else {
-      rep(0, nrow(cand_tbl))
+      retained$pseudo_ms2_id <- NA_character_
     }
-
-    pseudo_rows[[length(pseudo_rows) + 1L]] <- cand_tbl
-    ms2_rows[[length(ms2_rows) + 1L]] <- data.frame(
-      ms2_id = cand_tbl$pseudo_ms2_id,
-      precursor_mz = cand_tbl$precursor_mz,
-      precursor_variable_id = cand_tbl$precursor_variable_id,
-      fragment_mz = cand_tbl$fragment_mz,
-      fragment_intensity = cand_tbl$normalized_intensity,
-      ms2_type = cand_tbl$ms2_type,
-      source_file = "pseudo_targeted_spatial_correlation",
-      sample_id = NA_character_,
-      rt = NA_real_,
-      confidence_score = cand_tbl$correlation,
-      stringsAsFactors = FALSE,
-      check.names = FALSE
-    )
+  }
+  if (!"ms2_type" %in% colnames(retained)) {
+    retained$ms2_type <- "pseudo"
+  }
+  if (!"normalized_intensity" %in% colnames(retained) && "fragment_intensity" %in% colnames(retained)) {
+    max_int <- max(retained$fragment_intensity, na.rm = TRUE)
+    if (!is.finite(max_int) || max_int == 0) {
+      retained$normalized_intensity <- 0
+    } else {
+      retained$normalized_intensity <- retained$fragment_intensity / max_int
+    }
+  } else if (!"normalized_intensity" %in% colnames(retained)) {
+    retained$normalized_intensity <- NA_real_
+  }
+  if (!"slice_consistency" %in% colnames(retained)) {
+    retained$slice_consistency <- NA_real_
   }
 
-  pseudo_tbl <- do.call(rbind, pseudo_rows)
-  if (is.null(pseudo_tbl)) {
-    pseudo_tbl <- .empty_pseudo_fragment_table()
-  }
-  compat_tbl <- do.call(rbind, ms2_rows)
-  if (is.null(compat_tbl)) {
-    compat_tbl <- .empty_ms2_table()
+  required_cols <- c(
+    "precursor_variable_id", "precursor_mz", "fragment_mz",
+    "fragment_variable_id", "correlation", "fragment_intensity", "score"
+  )
+  missing_cols <- setdiff(required_cols, colnames(retained))
+  for (col in missing_cols) {
+    retained[[col]] <- NA_real_
   }
 
-  if (nrow(compat_tbl) > 0) {
-    ms2_table <- rbind(ms2_table, compat_tbl)
-  }
-  object <- .set_ms2_table(object, ms2_table)
-  object@ms2_data$pseudo_ms2_table <- pseudo_tbl
-  object@ms2_data$targeted_pseudo_ms2_table <- pseudo_tbl
-  object@ms2_data$pseudo_correlation_table <- pseudo_tbl[, c(
+  object@ms2_data$pseudo_ms2_table <- retained
+  object@ms2_data$targeted_pseudo_ms2_table <- retained
+  corr_tbl <- retained[, c(
     "precursor_variable_id", "precursor_mz", "fragment_mz",
     "fragment_variable_id", "correlation", "fragment_intensity", "score"
   ), drop = FALSE]
-  colnames(object@ms2_data$pseudo_correlation_table)[4] <- "variable_id"
-  object@ms2_data$fragment_candidates <- object@ms2_data$pseudo_correlation_table
+  corr_tbl$variable_id <- corr_tbl$fragment_variable_id
+  object@ms2_data$pseudo_correlation_table <- corr_tbl
+
   object <- .sync_variable_ms2(object)
   object <- add_process_log(
     object = object,
@@ -1441,11 +1395,10 @@ generate_pseudo_ms2 <- function(object,
     parameter = list(
       precursor_mz = precursor_mz,
       ppm = ppm,
-      correlation_method = correlation_method,
-      correlation_threshold = correlation_threshold,
+      method = method,
       top_n = top_n,
-      n_precursor_matched = length(unique(pseudo_tbl$precursor_variable_id)),
-      n_fragment_rows = nrow(pseudo_tbl)
+      n_precursor_matched = length(unique(retained$precursor_variable_id)),
+      n_fragment_rows = nrow(retained)
     )
   )
   methods::validObject(object)
@@ -1454,21 +1407,39 @@ generate_pseudo_ms2 <- function(object,
 
 #' Detect spatial-spectral joint fragment candidates
 #'
+#' The algorithm evaluates spatial correlation alongside spectral
+#' compatibility to prioritize fragments that align both spatially and
+#' chemically with each precursor.
+#'
 #' @param object A \code{msi_dataset} object.
 #' @param precursor_mz Numeric precursor m/z target vector.
 #' @param ppm Numeric precursor matching tolerance.
 #' @param correlation_method Spatial correlation method.
+#' @param sigma Spread of neutral loss scoring (smaller sharpens alignment).
+#' @param neutral_losses Numeric neutral losses used for spectral scoring.
 #' @return Updated \code{msi_dataset} with joint fragment candidates stored in
 #'   \code{ms2_data$fragment_candidates}.
 #' @export
 detect_joint_fragments <- function(object,
                                    precursor_mz,
                                    ppm = 10,
-                                   correlation_method = c("spearman", "pearson")) {
+                                   correlation_method = c("spearman", "pearson"),
+                                   sigma = 1,
+                                   neutral_losses = c(18, 28, 44)) {
   if (!methods::is(object, "msi_dataset")) {
     stop("object must be a msi_dataset.")
   }
   correlation_method <- match.arg(correlation_method)
+  sigma <- as.numeric(sigma)
+  if (!is.finite(sigma) || sigma <= 0) {
+    stop("sigma must be a positive numeric value.")
+  }
+  neutral_losses <- as.numeric(neutral_losses)
+  neutral_losses <- neutral_losses[is.finite(neutral_losses)]
+  if (length(neutral_losses) == 0) {
+    stop("neutral_losses must contain at least one finite numeric value.")
+  }
+
   precursor_mz <- as.numeric(precursor_mz)
   precursor_mz <- precursor_mz[is.finite(precursor_mz)]
   if (length(precursor_mz) == 0) {
@@ -1513,8 +1484,12 @@ detect_joint_fragments <- function(object,
       if (!is.finite(frag_int)) {
         frag_int <- 0
       }
-      delta_mz <- pmz - as.numeric(vinfo$mz[[j]])
-      spectral_score <- .neutral_loss_score(delta_mz)
+      fragment_mz <- as.numeric(vinfo$mz[[j]])
+      delta_mz <- pmz - fragment_mz
+      spectral_score <- .neutral_loss_score(delta_mz,
+        losses = neutral_losses,
+        sigma = sigma
+      )
       intensity_score <- log1p(frag_int)
       joint_score <- as.numeric(spatial_corr) * spectral_score * intensity_score
 
@@ -1522,7 +1497,8 @@ detect_joint_fragments <- function(object,
         precursor_variable_id = precursor_id,
         precursor_mz = pmz,
         fragment_variable_id = as.character(vinfo$variable_id[[j]]),
-        fragment_mz = as.numeric(vinfo$mz[[j]]),
+        fragment_mz = fragment_mz,
+        fragment_intensity = frag_int,
         spatial_corr = as.numeric(spatial_corr),
         spectral_score = as.numeric(spectral_score),
         intensity_score = as.numeric(intensity_score),
@@ -1548,6 +1524,8 @@ detect_joint_fragments <- function(object,
       precursor_mz = precursor_mz,
       ppm = ppm,
       correlation_method = correlation_method,
+      sigma = sigma,
+      neutral_losses = neutral_losses,
       n_candidate_rows = nrow(candidate_tbl)
     )
   )
@@ -1687,7 +1665,7 @@ plot_fragment_network <- function(object, layout = "fr") {
     ) +
     ggplot2::scale_color_manual(values = c(precursor = "#d7301f", fragment = "#3182bd")) +
     ggplot2::scale_size_manual(values = c(precursor = 4, fragment = 3)) +
-    ggplot2::scale_edge_width(range = c(0.3, 1.6)) +
+    ggraph::scale_edge_width(range = c(0.3, 1.6)) +
     ggplot2::theme_void() +
     ggplot2::labs(
       title = "Pseudo Fragmentation Network",
@@ -1695,6 +1673,103 @@ plot_fragment_network <- function(object, layout = "fr") {
       color = "node type",
       size = "node type",
       edge_width = "joint score"
+    )
+}
+
+#' Plot pseudo fragmentation network with igraph layouts
+#'
+#' @param object An \code{msi_dataset} object or \code{igraph} graph.
+#' @param layout Layout engine used for node placement (choices: "fr", "kk").
+#' @return A \code{ggplot2} object.
+#' @export
+plot_ms2_network_igraph <- function(object, layout = c("fr", "kk")) {
+  if (!requireNamespace("igraph", quietly = TRUE)) {
+    stop("Please install igraph to use plot_ms2_network_igraph().")
+  }
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Please install ggplot2 to use plot_ms2_network_igraph().")
+  }
+
+  graph <- if (inherits(object, "igraph")) {
+    object
+  } else {
+    if (!methods::is(object, "msi_dataset")) {
+      stop("object must be an msi_dataset or igraph object.")
+    }
+    object@other_files$pseudo_fragment_network
+  }
+  if (is.null(graph) || !inherits(graph, "igraph")) {
+    stop("No pseudo fragment network found. Run build_fragment_network() first.")
+  }
+
+  layout <- match.arg(layout)
+  coords <- switch(layout,
+    fr = igraph::layout_with_fr(graph),
+    kk = igraph::layout_with_kk(graph)
+  )
+  node_df <- data.frame(
+    name = as.character(igraph::V(graph)$name),
+    type = as.character(igraph::V(graph)$type),
+    mz = igraph::V(graph)$mz,
+    x = coords[, 1],
+    y = coords[, 2],
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  edge_df <- igraph::as_data_frame(graph, what = "edges")
+  edge_df <- merge(
+    edge_df,
+    node_df,
+    by.x = "from",
+    by.y = "name",
+    suffixes = c(".from", ".to"),
+    all.x = TRUE,
+    sort = FALSE
+  )
+  edge_df <- merge(
+    edge_df,
+    node_df,
+    by.x = "to",
+    by.y = "name",
+    suffixes = c(".from", ".to"),
+    all.x = TRUE,
+    sort = FALSE
+  )
+  edge_df <- edge_df[!is.na(edge_df$x.from) & !is.na(edge_df$x.to), , drop = FALSE]
+
+  ggplot2::ggplot() +
+    ggplot2::geom_segment(
+      data = edge_df,
+      ggplot2::aes(
+        x = x.from,
+        y = y.from,
+        xend = x.to,
+        yend = y.to,
+        linewidth = weight
+      ),
+      color = "#7f8c8d",
+      alpha = 0.6
+    ) +
+    ggplot2::geom_point(
+      data = node_df,
+      ggplot2::aes(x = x, y = y, color = type, size = type)
+    ) +
+    ggplot2::geom_text(
+      data = node_df,
+      ggplot2::aes(x = x, y = y, label = signif(mz, 6)),
+      vjust = -0.5,
+      size = 3
+    ) +
+    ggplot2::scale_color_manual(values = c(precursor = "#d7301f", fragment = "#3182bd")) +
+    ggplot2::scale_size_manual(values = c(precursor = 4, fragment = 3)) +
+    ggplot2::scale_linewidth(range = c(0.3, 1.5)) +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Pseudo Fragmentation Network",
+      subtitle = paste0("layout = ", layout),
+      color = "node type",
+      size = "node type",
+      linewidth = "joint score"
     )
 }
 
@@ -1846,43 +1921,79 @@ mirror_plot <- function(object, ms2_id, pseudo_ms2_id) {
 
 #' Benchmark pseudo-MS2 reconstruction
 #'
+#' Compare inferred pseudo MS2 spectra with experimental MS2 spectra and report
+#' cosine similarity plus fragment overlap ratios.
+#'
 #' @param object A \code{msi_dataset} object.
+#' @param ms2_library Optional subset of experimental MS2 entries that should be
+#'   used for benchmarking. Must contain \code{ms2_id} values that exist in the
+#'   object's MS2 table.
+#' @param ppm Precursor matching tolerance (ppm) used when aligning external MS2
+#'   entries.
 #' @param tolerance Fragment m/z matching tolerance for spectrum comparison.
 #' @param ... Additional arguments passed to \code{infer_pseudo_ms2()}.
 #' @return Updated \code{msi_dataset} with benchmark table stored in
-#'   `other_files$pseudo_ms2_benchmark`.
+#'   \code{other_files$pseudo_ms2_benchmark}.
 #' @export
-benchmark_pseudo_ms2 <- function(object, tolerance = 0.01, ...) {
+benchmark_pseudo_ms2 <- function(object,
+                                 ms2_library = NULL,
+                                 ppm = 10,
+                                 tolerance = 0.01,
+                                 ...) {
   if (!methods::is(object, "msi_dataset")) {
     stop("object must be a msi_dataset.")
   }
 
   ms2_table <- .get_ms2_table(object)
   real_tbl <- ms2_table[ms2_table$ms2_type == "actual", , drop = FALSE]
+  if (!is.null(ms2_library)) {
+    ms2_library <- as.data.frame(ms2_library, stringsAsFactors = FALSE, check.names = FALSE)
+    if (!"ms2_id" %in% colnames(ms2_library)) {
+      stop("ms2_library must contain ms2_id column.")
+    }
+    keep_ids <- unique(ms2_library$ms2_id)
+    real_tbl <- real_tbl[real_tbl$ms2_id %in% keep_ids, , drop = FALSE]
+  }
+
   if (nrow(real_tbl) == 0) {
     warning("No real MS2 spectra found for benchmarking.")
     object@other_files$pseudo_ms2_benchmark <- data.frame()
     return(object)
   }
 
-  precursors <- unique(real_tbl$precursor_variable_id)
+  vinfo <- object@variable_info
+  if (!"precursor_variable_id" %in% colnames(real_tbl)) {
+    real_tbl$precursor_variable_id <- vapply(real_tbl$precursor_mz, function(pmz) {
+      idx <- .target_precursor_indices(vinfo, precursor_mz = pmz, ppm = ppm)
+      if (length(idx) == 0) {
+        NA_character_
+      } else {
+        as.character(vinfo$variable_id[[idx[[1]]]])
+      }
+    }, character(1))
+  }
+  real_tbl$precursor_variable_id <- as.character(real_tbl$precursor_variable_id)
+  precursors <- unique(real_tbl$precursor_variable_id[!is.na(real_tbl$precursor_variable_id)])
+  if (length(precursors) == 0) {
+    warning("No matching precursor variable IDs found for benchmarking.")
+    object@other_files$pseudo_ms2_benchmark <- data.frame()
+    return(object)
+  }
+
   object <- infer_pseudo_ms2(object = object, variable_id = precursors, ...)
   ms2_table <- .get_ms2_table(object)
 
   bench_rows <- lapply(precursors, function(pid) {
-    real_sub <- ms2_table[
-      ms2_table$precursor_variable_id == pid & ms2_table$ms2_type == "actual",
-      ,
-      drop = FALSE
-    ]
-    pseudo_sub <- ms2_table[
-      ms2_table$precursor_variable_id == pid & ms2_table$ms2_type %in% c("pseudo", "pseudo_candidate"),
-      ,
-      drop = FALSE
-    ]
+    real_sub <- real_tbl[real_tbl$precursor_variable_id == pid, , drop = FALSE]
     if (nrow(real_sub) == 0) {
       return(NULL)
     }
+    pseudo_sub <- ms2_table[
+      ms2_table$precursor_variable_id == pid &
+        ms2_table$ms2_type %in% c("pseudo", "pseudo_candidate"),
+      ,
+      drop = FALSE
+    ]
 
     real_id <- unique(real_sub$ms2_id)[[1]]
     pseudo_id <- if (nrow(pseudo_sub) > 0) unique(pseudo_sub$ms2_id)[[1]] else NA_character_
@@ -1892,18 +2003,24 @@ benchmark_pseudo_ms2 <- function(object, tolerance = 0.01, ...) {
       NULL
     }
 
+    real_fragments <- length(unique(real_sub$fragment_mz))
+    pseudo_fragments <- if (nrow(pseudo_sub) > 0) length(unique(pseudo_sub$fragment_mz)) else 0L
+    matched <- if (!is.null(cmp)) cmp$matched_fragment_count else 0L
+    overlap_ratio <- if (!is.null(cmp) && real_fragments > 0) matched / real_fragments else NA_real_
+
     data.frame(
       precursor_variable_id = pid,
       precursor_mz = unique(real_sub$precursor_mz)[[1]],
-      real_fragment_count = length(unique(real_sub$fragment_mz)),
-      pseudo_fragment_count = if (nrow(pseudo_sub) > 0) length(unique(pseudo_sub$fragment_mz)) else 0L,
-      matched_fragment_count = if (!is.null(cmp)) cmp$matched_fragment_count else 0L,
+      real_fragment_count = real_fragments,
+      pseudo_fragment_count = pseudo_fragments,
+      matched_fragment_count = matched,
       cosine_similarity = if (!is.null(cmp)) cmp$cosine_similarity else NA_real_,
-      fragment_overlap_ratio = if (!is.null(cmp)) cmp$overlap_ratio else NA_real_,
+      fragment_overlap_ratio = overlap_ratio,
       stringsAsFactors = FALSE,
       check.names = FALSE
     )
   })
+
   bench_tbl <- do.call(rbind, bench_rows)
   if (is.null(bench_tbl)) {
     bench_tbl <- data.frame(
@@ -1925,6 +2042,7 @@ benchmark_pseudo_ms2 <- function(object, tolerance = 0.01, ...) {
     function_name = "benchmark_pseudo_ms2()",
     parameter = list(
       n_precursor = nrow(bench_tbl),
+      ppm = ppm,
       tolerance = tolerance
     )
   )

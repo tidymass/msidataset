@@ -46,9 +46,8 @@ test_that("generate_pseudo_ms2 stores targeted pseudo fragments across sections"
     object = object,
     precursor_mz = c(151.02, 289.13),
     ppm = 10,
-    correlation_method = "spearman",
-    correlation_threshold = 0.3,
-    top_n = 2
+    top_n = 2,
+    method = "spearman"
   )
 
   expect_valid_msi(out)
@@ -59,6 +58,8 @@ test_that("generate_pseudo_ms2 stores targeted pseudo fragments across sections"
     "correlation", "fragment_intensity", "score", "normalized_intensity",
     "slice_consistency", "ms2_type"
   ) %in% colnames(tbl)))
+  expect_true("pseudo_intensity" %in% colnames(tbl))
+  expect_true("confidence_score" %in% colnames(tbl))
   expect_true(all(tbl$ms2_type == "pseudo"))
   expect_true(all(tbl$fragment_mz < tbl$precursor_mz))
   expect_true(any(tbl$precursor_mz == 151.02))
@@ -73,8 +74,8 @@ test_that("plot_pseudo_ms2 and plot_spatial_fragment return ggplot for targeted 
   object <- generate_pseudo_ms2(
     object = object,
     precursor_mz = c(151.02),
-    correlation_threshold = 0.3,
-    top_n = 2
+    top_n = 2,
+    method = "spearman"
   )
 
   p1 <- plot_pseudo_ms2(object, mz = 151.02, tolerance_ppm = 10)
@@ -113,6 +114,7 @@ test_that("detect_joint_fragments stores spatial-spectral candidate table", {
     "precursor_mz", "fragment_mz", "spatial_corr",
     "spectral_score", "intensity_score", "joint_score"
   ) %in% colnames(tbl)))
+  expect_true("fragment_intensity" %in% colnames(tbl))
   expect_true(any(tbl$precursor_mz == 151.02))
   expect_true(any(tbl$precursor_mz == 289.13))
 })
@@ -129,4 +131,35 @@ test_that("build_fragment_network stores igraph and plot_fragment_network return
   expect_true(inherits(object@other_files$pseudo_fragment_network, "igraph"))
   p <- plot_fragment_network(object)
   expect_s3_class(p, "ggplot")
+})
+
+test_that("plot_ms2_network_igraph renders ggplot for supported layouts", {
+  testthat::skip_if_not_installed("igraph")
+  testthat::skip_if_not_installed("ggplot2")
+
+  object <- make_targeted_pseudo_test_object()
+  object <- detect_joint_fragments(object, precursor_mz = c(151.02, 289.13))
+  object <- build_fragment_network(object, top_k = 2)
+
+  p_fr <- plot_ms2_network_igraph(object, layout = "fr")
+  p_kk <- plot_ms2_network_igraph(object, layout = "kk")
+
+  expect_s3_class(p_fr, "ggplot")
+  expect_s3_class(p_kk, "ggplot")
+})
+
+test_that("benchmark_pseudo_ms2 records cosine and overlap metrics", {
+  object <- make_test_msi_object()
+  mgf <- make_temp_mgf(precursor_mz = c(191.02), scans = c("spectrum_1"))
+  object <- mutate_ms2(object, path = mgf, ms1.ms2.match.mz.tol = 20)
+
+  out <- benchmark_pseudo_ms2(object, tolerance = 0.02)
+  bench_tbl <- out@other_files$pseudo_ms2_benchmark
+
+  expect_true(is.data.frame(bench_tbl))
+  expect_true(all(c(
+    "precursor_mz", "real_fragment_count", "pseudo_fragment_count",
+    "matched_fragment_count", "cosine_similarity", "fragment_overlap_ratio"
+  ) %in% colnames(bench_tbl)))
+  expect_true(all(bench_tbl$matched_fragment_count <= bench_tbl$real_fragment_count))
 })

@@ -1,0 +1,131 @@
+---
+title: "msidataset Workflow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{msidataset Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+This vignette demonstrates a deterministic end-to-end workflow:
+convert, filter, mutate, ROI operations, slice, summarize, and state tracking.
+
+## Deterministic synthetic data
+
+```{r}
+library(msidataset)
+
+expr <- matrix(seq_len(5 * 8), nrow = 5, ncol = 8)
+sample_info <- data.frame(
+  sample_id = paste0("spectrum_", 1:8),
+  x = rep(1:4, 2),
+  y = rep(c(1, 2), each = 4),
+  z = rep(c(1, 2), each = 4),
+  subject_id = "subject_demo",
+  section_id = rep(c("section_1", "section_2"), each = 4),
+  resolution = 50,
+  matrix = "CHCA",
+  stringsAsFactors = FALSE
+)
+variable_info <- data.frame(
+  variable_id = paste0("m", 1:5),
+  mz = c(130.06, 191.02, 250.10, 306.07, 401.20),
+  ms2 = "no",
+  stringsAsFactors = FALSE
+)
+rownames(expr) <- variable_info$variable_id
+colnames(expr) <- sample_info$sample_id
+
+obj0 <- create_msi_dataset(expr, sample_info, variable_info)
+obj0
+```
+
+## Verb flow visualization
+
+```{r}
+flow <- msi_show_flow(obj0, verb = "filter")
+flow
+```
+
+## Convert
+
+`convert_cardinal2msi_dataset()` is demonstrated in package tests with
+conditional Cardinal/imzML checks to keep CI deterministic and lightweight.
+
+## Filter
+
+```{r}
+obj1 <- filter_msi(
+  obj0,
+  target = "variable_info",
+  filter_type = "mz_range",
+  mz_min = 180,
+  mz_max = 320
+)
+dim(obj0)
+dim(obj1)
+```
+
+## Mutate MS2
+
+```{r}
+mgf_file <- tempfile(fileext = ".mgf")
+writeLines(c(
+  "BEGIN IONS",
+  "TITLE=demo_1",
+  "PEPMASS=191.0200",
+  "RTINSECONDS=10",
+  "SCANS=spectrum_1",
+  "100.0 200",
+  "120.0 50",
+  "END IONS"
+), mgf_file)
+
+obj2 <- mutate_msi(obj1, method = "ms2", path = mgf_file, ms1.ms2.match.mz.tol = 20)
+head(extract_ms2(obj2, what = "ms2_info"))
+```
+
+## ROI selection
+
+```{r}
+obj3 <- roi_msi(
+  obj2,
+  action = "add",
+  roi_id = "roi_demo",
+  sample_id = obj2@sample_info$sample_id[1:2],
+  section_id = "section_1",
+  overwrite = TRUE
+)
+roi_msi(obj3, action = "list")
+```
+
+## Slice
+
+```{r}
+obj4 <- slice_msi(obj3, section_id = "section_1")
+dim(obj4)
+```
+
+## Summarize
+
+```{r}
+sum4 <- summarize_msi(obj4)
+sum4
+```
+
+## Object state tracking
+
+```{r}
+cmp <- compare_msi(obj0, obj4)
+cmp
+```
+
+## Session info
+
+```{r}
+sessionInfo()
+```

@@ -8,7 +8,9 @@ detect_joint_fragments(
   object,
   precursor_mz,
   ppm = 10,
-  correlation_method = c("spearman", "pearson")
+  correlation_method = c("spearman", "pearson"),
+  sigma = 1,
+  neutral_losses = c(18, 28, 44)
 )
 }
 \arguments{
@@ -19,11 +21,17 @@ detect_joint_fragments(
 \item{ppm}{Numeric precursor matching tolerance.}
 
 \item{correlation_method}{Spatial correlation method.}
+
+\item{sigma}{Spread of neutral loss scoring (smaller sharpens alignment).}
+
+\item{neutral_losses}{Numeric neutral losses used for spectral scoring.}
 }
 \value{
 Updated \code{msi_dataset} with joint fragment candidates stored in
 \code{ms2_data$fragment_candidates}.
 }
 \description{
-Detect spatial-spectral joint fragment candidates
+The algorithm evaluates spatial correlation alongside spectral
+compatibility to prioritize fragments that align both spatially and
+chemically with each precursor.
 }

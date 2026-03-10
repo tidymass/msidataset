@@ -4,10 +4,23 @@
 \alias{benchmark_pseudo_ms2}
 \title{Benchmark pseudo-MS2 reconstruction}
 \usage{
-benchmark_pseudo_ms2(object, tolerance = 0.01, ...)
+benchmark_pseudo_ms2(
+  object,
+  ms2_library = NULL,
+  ppm = 10,
+  tolerance = 0.01,
+  ...
+)
 }
 \arguments{
 \item{object}{A \code{msi_dataset} object.}
+
+\item{ms2_library}{Optional subset of experimental MS2 entries that should be
+used for benchmarking. Must contain \code{ms2_id} values that exist in the
+object's MS2 table.}
+
+\item{ppm}{Precursor matching tolerance (ppm) used when aligning external MS2
+entries.}
 
 \item{tolerance}{Fragment m/z matching tolerance for spectrum comparison.}
 
@@ -18,5 +31,6 @@ Updated \code{msi_dataset} with benchmark table stored in
 \code{other_files$pseudo_ms2_benchmark}.
 }
 \description{
-Benchmark pseudo-MS2 reconstruction
+Compare inferred pseudo MS2 spectra with experimental MS2 spectra and report
+cosine similarity plus fragment overlap ratios.
 }

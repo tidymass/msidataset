@@ -38,6 +38,26 @@
   list(x = x_vals, y = y_vals, z = mat)
 }
 
+.validate_spatial_alignment <- function(object) {
+  stopifnot(methods::is(object, "msi_dataset"))
+  if (ncol(object@expression_data) != nrow(object@sample_info)) {
+    stop("expression_data columns must match sample_info rows.")
+  }
+}
+
+.build_spatial_df <- function(object, values, value_name) {
+  .validate_spatial_alignment(object)
+  df <- data.frame(
+    x = as.numeric(object@sample_info$x),
+    y = as.numeric(object@sample_info$y),
+    value = as.numeric(values),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+  names(df)[names(df) == "value"] <- value_name
+  df
+}
+
 .point_in_polygon <- function(x, y, poly_x, poly_y) {
   n <- length(poly_x)
   inside <- rep(FALSE, length(x))
@@ -160,29 +180,78 @@ ion_image <- function(object,
 }
 
 #' Mean spectrum across all pixels
+#'
 #' @param object A \code{msi_dataset} object.
 #' @param plot Logical.
-#' @return Data frame with mz and mean intensity.
+#' @return Data frame with mz and mean intensity or a ggplot object when plot = TRUE.
 #' @importFrom methods is
-#' @importFrom graphics plot
 #' @export
-mean_spectrum <- function(object, plot = TRUE) {
+.build_mean_spectrum_df <- function(object) {
   stopifnot(methods::is(object, "msi_dataset"))
-  mean_intensity <- rowMeans(object@expression_data, na.rm = TRUE)
-  out <- data.frame(mz = object@variable_info$mz, intensity = mean_intensity)
+  data.frame(
+    mz = object@variable_info$mz,
+    intensity = rowMeans(object@expression_data, na.rm = TRUE),
+    stringsAsFactors = FALSE,
+    check.names = FALSE
+  )
+}
 
-  if (plot) {
-    graphics::plot(out$mz, out$intensity, type = "l", col = "#0B4F6C",
-                   xlab = "m/z", ylab = "Mean intensity",
-                   main = "Mean spectrum")
+#' Plot mean spectrum
+#'
+#' @param object A \code{msi_dataset} object.
+#' @param df Optional precomputed spectrum data frame.
+#' @return A \code{ggplot2} object.
+#' @export
+plot_mean_spectrum <- function(object, df = NULL) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Please install ggplot2 to use plot_mean_spectrum().")
   }
+  if (is.null(df)) {
+    df <- .build_mean_spectrum_df(object)
+  }
+  ggplot2::ggplot(df, ggplot2::aes(x = mz, y = intensity)) +
+    ggplot2::geom_line(color = "#0B4F6C") +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Mean spectrum",
+      x = "m/z",
+      y = "Mean intensity"
+    )
+}
 
-  object <- add_process_log(object, "mean_spectrum()", list(n_variables = nrow(out)))
-  attr(out, "object") <- object
-  out
+mean_spectrum <- function(object, plot = TRUE) {
+  df <- .build_mean_spectrum_df(object)
+  object <- add_process_log(object, "mean_spectrum()", list(n_variables = nrow(df)))
+  attr(df, "object") <- object
+  if (plot) {
+    return(plot_mean_spectrum(object, df = df))
+  }
+  df
+}
+
+#' Spatial total ion current map (ggplot)
+#'
+#' @param object A \code{msi_dataset} object.
+#' @return A \code{ggplot2} object.
+#' @export
+plot_tic_map <- function(object) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Please install ggplot2 to use plot_tic_map().")
+  }
+  df <- .build_spatial_df(object, colSums(object@expression_data, na.rm = TRUE), "tic")
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, fill = tic)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_viridis_c(name = "TIC") +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Total ion current",
+      x = "x",
+      y = "y"
+    )
 }
 
 #' Total ion current spatial map
+#'
 #' @param object A \code{msi_dataset} object.
 #' @param plot Logical.
 #' @return Data frame with TIC values by pixel.
@@ -190,14 +259,13 @@ mean_spectrum <- function(object, plot = TRUE) {
 #' @export
 tic_map <- function(object, plot = TRUE) {
   stopifnot(methods::is(object, "msi_dataset"))
-  tic <- colSums(object@expression_data, na.rm = TRUE)
-  out <- .intensity_df(object, tic)
-  if (plot) {
-    .plot_spatial_map(out, title = "TIC map")
-  }
+  df <- .build_spatial_df(object, colSums(object@expression_data, na.rm = TRUE), "tic")
   object <- add_process_log(object, "tic_map()", list())
-  attr(out, "object") <- object
-  out
+  attr(df, "object") <- object
+  if (plot) {
+    return(plot_tic_map(object))
+  }
+  df
 }
 
 #' Spectrum for one pixel
@@ -375,23 +443,45 @@ pixel_similarity_map <- function(object,
   out
 }
 
+#' Spatial coverage map (ggplot)
+#'
+#' @param object A \code{msi_dataset} object.
+#' @param threshold Minimum intensity considered a peak.
+#' @return A \code{ggplot2} object.
+#' @export
+plot_coverage_map <- function(object, threshold = 0) {
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Please install ggplot2 to use plot_coverage_map().")
+  }
+  df <- .build_spatial_df(object, colSums(object@expression_data > threshold, na.rm = TRUE), "coverage")
+  ggplot2::ggplot(df, ggplot2::aes(x = x, y = y, fill = coverage)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_viridis_c(name = "Coverage") +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = "Coverage map",
+      x = "x",
+      y = "y"
+    )
+}
+
 #' Mass spectrum coverage map
+#'
 #' @param object A \code{msi_dataset} object.
 #' @param threshold Intensity threshold for detected peaks.
 #' @param plot Logical.
-#' @return Data frame of coverage ratio per pixel.
+#' @return Data frame of detected peak counts per pixel.
 #' @importFrom methods is
 #' @export
 coverage_map <- function(object, threshold = 0, plot = TRUE) {
   stopifnot(methods::is(object, "msi_dataset"))
-  coverage <- colMeans(object@expression_data > threshold, na.rm = TRUE)
-  out <- .intensity_df(object, coverage)
-  if (plot) {
-    .plot_spatial_map(out, title = "Coverage map")
-  }
+  df <- .build_spatial_df(object, colSums(object@expression_data > threshold, na.rm = TRUE), "coverage")
   object <- add_process_log(object, "coverage_map()", list(threshold = threshold))
-  attr(out, "object") <- object
-  out
+  attr(df, "object") <- object
+  if (plot) {
+    return(plot_coverage_map(object, threshold = threshold))
+  }
+  df
 }
 
 #' Spatial clustering visualization

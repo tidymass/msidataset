@@ -14,7 +14,7 @@ coverage_map(object, threshold = 0, plot = TRUE)
 \item{plot}{Logical.}
 }
 \value{
-Data frame of coverage ratio per pixel.
+Data frame of detected peak counts per pixel.
 }
 \description{
 Mass spectrum coverage map

@@ -2,15 +2,14 @@
 % Please edit documentation in R/mutate_ms2.R
 \name{generate_pseudo_ms2}
 \alias{generate_pseudo_ms2}
-\title{Generate targeted pseudo-MS2 spectra}
+\title{Generate pseudo-MS2 spectra for target precursors}
 \usage{
 generate_pseudo_ms2(
   object,
   precursor_mz,
   ppm = 10,
-  correlation_method = c("spearman", "pearson"),
-  correlation_threshold = 0.3,
-  top_n = 20
+  top_n = 20,
+  method = c("spearman", "pearson")
 )
 }
 \arguments{
@@ -20,16 +19,16 @@ generate_pseudo_ms2(
 
 \item{ppm}{Numeric precursor matching tolerance.}
 
-\item{correlation_method}{Spatial correlation method.}
+\item{top_n}{Maximum fragments retained per precursor.}
 
-\item{correlation_threshold}{Minimum final correlation.}
-
-\item{top_n}{Maximum fragment count per precursor.}
+\item{method}{Spatial correlation method.}
 }
 \value{
-Updated \code{msi_dataset} with targeted pseudo-MS2 results stored in
+Updated \code{msi_dataset} with pseudo-MS2 results stored in
 \code{ms2_data$pseudo_ms2_table}.
 }
 \description{
-Generate targeted pseudo-MS2 spectra
+This wrapper delegates to \code{infer_pseudo_ms2()} and keeps the top-ranked
+fragments per precursor, storing the result inside
+\code{ms2_data$pseudo_ms2_table}.
 }
