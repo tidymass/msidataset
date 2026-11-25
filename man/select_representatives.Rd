@@ -12,7 +12,8 @@ select_representatives(vectors, members)
 \item{members}{Data frame with feature_id and cluster_id.}
 }
 \value{
-Data frame of representatives with an \code{issues} attribute.
+Data frame of representatives with an \code{issues} attribute. An unsuccessful
+upstream stage produces an empty data frame with a \code{status} attribute.
 }
 \description{
 Choose the member nearest the centroid by cosine, then its nearest members;

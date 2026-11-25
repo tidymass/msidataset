@@ -37,7 +37,7 @@ process information. No candidate ranking is modified.
 Construct the OpenAI-compatible request using a configured prompt and output
 schema. Only loopback HTTP endpoints are accepted. Response validation uses
 the JSON Schema subset used by the registered output schema. With \code{vocabulary_cards} in config,
-responses also receive v2p2 semantic checks. All prose remains for review.
+responses also receive semantic evidence checks. All prose remains for review.
 Optional token counting uses the local server's actual tokenizer.
 }
 \examples{

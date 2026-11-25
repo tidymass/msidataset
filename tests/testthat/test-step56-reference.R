@@ -1,21 +1,21 @@
-test_that('D15 pseudo-MS2 through step5, step6 and MFC matches the locked run', {
-  skip_if_not(identical(Sys.getenv('MSIDATASET_RUN_D15_STEP56'),'true'),
-    'Set MSIDATASET_RUN_D15_STEP56=true to run the large external regression')
-  cfg <- locked_d15()
+test_that('Pseudo-MS2 through step5, step6 and MFC matches the reference run', {
+  skip_if_not(identical(Sys.getenv('MSIDATASET_RUN_REFERENCE_STEP56'),'true'),
+    'Set MSIDATASET_RUN_REFERENCE_STEP56=true to run the large external regression')
+  cfg <- reference_lock()
   keys <- c('meta', 'csv', 'labels', 'step6', 'mfc_reference',
-            'ms2_library', 'adp_config', 'ms1_library', 'ms1_project_root', 'vector_ids')
-  d15_require_files(vapply(cfg[keys], `[[`, character(1), 'path'))
-  study <- d15_fixture_root("MSIDATASET_D15_STUDY_ROOT")
-  reports <- d15_fixture_root("MSIDATASET_D15_REPORTS_ROOT")
-  form_path <- file.path(study, "runs/d11_kidney/report_d11/formula.tsv")
-  qc_path <- file.path(reports, "D12", "formula_qc.tsv")
-  d15_require_files(c(form_path, qc_path))
+            'ms2_library', 'matching_config', 'ms1_library', 'ms1_project_root', 'vector_ids')
+  reference_require_files(vapply(cfg[keys], `[[`, character(1), 'path'))
+  study <- reference_fixture_root()
+  reports <- reference_fixture_root()
+  form_path <- file.path(study, "reference_runs/liver/evaluation/library_formulas.tsv")
+  qc_path <- file.path(reports, "reference_runs/liver/evaluation/formula_qc.tsv")
+  reference_require_files(c(form_path, qc_path))
   meta <- data.table::fread(cfg$meta$path, data.table=FALSE)
   x <- read_msi_data(cfg$csv$path, mz=meta[['m/z']]-1.007276, feature_id=sprintf('F%03d',meta$col_index))
   x <- define_roi(x,data.table::fread(cfg$labels$path,data.table=FALSE))
   x <- generate_pseudo_ms2(x)
   out <- tempfile('step56-'); dir.create(out)
-  x <- match_spectral_library(x,list(output_dir=out))
+  x <- match_spectral_library(x,list(output_dir=out, workers=1L))
   z <- x@process_info$match_spectral_library$result
   expect_identical(z$status,'OK')
   audit_dir <- Sys.getenv('MSIDATASET_STEP56_AUDIT_DIR')
@@ -53,7 +53,7 @@ test_that('D15 pseudo-MS2 through step5, step6 and MFC matches the locked run', 
   expect_identical(key(observed),key(expected))
   expect_identical(as.integer(observed$rank_within_feature),as.integer(expected$rank_within_feature))
   expect_lt(max(abs(observed$mfc_priority_score-expected$mfc_priority_score)/pmax(abs(expected$mfc_priority_score),.Machine$double.xmin)),1e-6)
-  # Author formulas are read only here, after inference, for preregistered evaluation.
+  # Author formulas are read only here, after inference, for reference evaluation.
   formulas <- data.table::fread(form_path, data.table = FALSE)
   qc <- data.table::fread(qc_path, data.table = FALSE)
   canonical <- function(v) {

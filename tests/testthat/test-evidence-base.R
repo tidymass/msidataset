@@ -16,7 +16,7 @@ test_that('base evidence is derived from upstream rows and has local provenance'
   expect_false(.msi_forbidden_view(view))
 })
 
-test_that('representative count follows the D15 prereg rule max(ceil(0.1n), 5)', {
+test_that('representative count follows the reference locked rule max(ceil(0.1n), 5)', {
   for (n in c(5L, 23L, 50L, 60L)) {
     vectors <- diag(n); rownames(vectors) <- sprintf('F%03d',seq_len(n))
     members <- data.frame(feature_id=rownames(vectors),cluster_id=0L)

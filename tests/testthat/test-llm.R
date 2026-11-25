@@ -19,18 +19,18 @@ test_that("local annotation builds requests and validates mocked responses", {
   expect_error(annotate_clusters(jsonlite::parse_json('{"formula":"C1"}'),cfg),"prohibited")
 })
 
-test_that("D15r user JSON preserves Python float and Unicode conventions", {
-  x <- jsonlite::parse_json('{"integral_float":1.0,"integer":1,"small":1e-7,"large":1e16,"text":"\u809d\u810f","object":{},"array":[]}')
-  expect_identical(.msi_python_json(x), '{"integral_float":1.0,"integer":1,"small":1e-07,"large":1e+16,"text":"\u809d\u810f","object":{},"array":[]}')
+test_that("reference user JSON preserves Python float and Unicode conventions", {
+  x <- jsonlite::parse_json('{"integral_float":1.0,"integer":1,"small":1e-7,"large":1e16,"text":"\u00e9","object":{},"array":[]}')
+  expect_identical(.msi_python_json(x), '{"integral_float":1.0,"integer":1,"small":1e-07,"large":1e+16,"text":"\u00e9","object":{},"array":[]}')
 })
 
-test_that("D15r recorded request user messages match byte for byte", {
-  root <- d15_fixture_root("MSIDATASET_D15_STUDY_ROOT")
-  prompt <- file.path(root, "configs/system_v7r_d15r.txt")
-  schema <- file.path(root, "schemas/llm_output.schema.json")
-  paths <- file.path(root, "runs/d15r_common/evidence_d15r/views", paste0("C", 0:2, ".json"))
-  requests <- file.path(root, "runs/d15r_primary/llm_d15q/requests", paste0("C", 0:2, ".json"))
-  skip_if_not(all(file.exists(c(prompt, schema, paths, requests))), "D15r reference data unavailable")
+test_that("reference recorded request user messages match byte for byte", {
+  root <- reference_fixture_root()
+  prompt <- file.path(root, "reference_runs/liver/annotation/system_prompt.txt")
+  schema <- file.path(root, "reference_runs/liver/annotation/response.schema.json")
+  paths <- file.path(root, "reference_runs/liver/evidence/extended", paste0("C", 0:2, ".json"))
+  requests <- file.path(root, "reference_runs/liver/annotation/primary/requests", paste0("C", 0:2, ".json"))
+  skip_if_not(all(file.exists(c(prompt, schema, paths, requests))), "reference reference data unavailable")
   cfg <- list(base_url = "http://localhost", model = "gpt-oss-120b", system_prompt = prompt,
               output_schema = schema, temperature = 0, top_k = 1, seed = 20261105, max_tokens = 1500)
   for (i in seq_along(paths)) {
@@ -93,7 +93,7 @@ test_that('token projection preserves full evidence and applies registered reduc
   expect_identical(view$truncation$full_evidence_sha256,digest::digest(file=full,algo='sha256'))
 })
 
-test_that('v2p2 reports invalid and truncated responses without accepting them', {
+test_that('semantic validation reports invalid and truncated responses without accepting them', {
   d <- tempfile(); dir.create(d); on.exit(unlink(d,recursive=TRUE))
   writeLines('system',file.path(d,'prompt')); writeLines('{"type":"object"}',file.path(d,'schema'))
   writeLines('{"name":"example"}',file.path(d,'vocab'))
@@ -103,7 +103,8 @@ test_that('v2p2 reports invalid and truncated responses without accepting them',
     body=charToRaw('{"choices":[{"finish_reason":"length","message":{"content":"{"}}]}'))
   result <- httr2::with_mocked_responses(mock,annotate_clusters(list(cluster_id='0'),cfg,perform=TRUE))
   expect_identical(result$validation$errors,c('INVALID_RESPONSE','TRUNCATED_LENGTH'))
-  expect_false(result$process_info$d15r_accepted)
+  expect_false(result$process_info$accepted)
+  expect_identical(result$process_info$validation, "SEMANTIC_V2")
 })
 
 test_that('JSON null response is a schema failure, not malformed JSON', {

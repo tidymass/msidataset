@@ -4,7 +4,7 @@
 \alias{calculate_mfc}
 \title{Calculate metabolite-feature candidates from spectral match evidence}
 \usage{
-calculate_mfc(object, step6 = NULL, output_dir)
+calculate_mfc(object, step6 = NULL, output_dir, resources = NULL)
 }
 \arguments{
 \item{object}{A mass_dataset with ROI and generate_pseudo_ms2 history.}
@@ -12,9 +12,14 @@ calculate_mfc(object, step6 = NULL, output_dir)
 \item{step6}{A compatible legacy msi_dataset after step6; when NULL, use
 the most recent match_spectral_library result stored in object.}
 
-\item{output_dir}{Existing writable directory for the scorer audit tables.
-Set \code{MSIDATASET_D15_REFERENCE_ROOT} and \code{MSIDATASET_D15_DATA_ROOT}
-to the directories containing the pinned scoring resources.}
+\item{output_dir}{Existing writable directory for the scorer audit tables.}
+
+\item{resources}{Optional named list or YAML file supplying \code{matching_config}, \code{ms1_library}, and \code{vector_ids}.
+Each entry is a path or a list with \code{path} and optional \code{sha256}.
+Relative paths in YAML resolve against the YAML file's directory.
+With NULL, use the package reference lock and verify its SHA-256 hashes.
+Set \code{MSIDATASET_REFERENCE_ROOT} to the root of the reference archive.
+An optional \code{ms1_project_root} defaults to the MS1 library directory.}
 }
 \value{
 The mass_dataset with candidates, excluded rows, and the full MFC
@@ -28,4 +33,8 @@ object. The object's pseudo-MS2 result is converted to the
 scorer query format, and the input pixels are checked against the step6 object.
 For features with measured centroids, saved step6 queries must agree with
 those masses. Rebuild spectral matches if the result is unresolved.
+}
+\details{
+Only negative ion mode is currently supported (\verb{[M−H]⁻}, \verb{[M+Cl]⁻}).
+If supplied, the resource declaration \code{ion_mode} must be \code{"negative"}.
 }

@@ -10,12 +10,3 @@
 *.dll
 /inst/doc/
 /Meta/
-/apps/
-/docs/
-/paper/
-/gates
-/_pkgdown.yml
-/DECISIONS_PKG.json
-/.agents/
-/.aws/
-/.codex/

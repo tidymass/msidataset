@@ -3507,6 +3507,8 @@ function(object,
   if (strategy == "none") {
     return(empty)
   }
+  restore_rng <- .msi_rng_restorer()
+  on.exit(restore_rng(), add = TRUE)
   set.seed(seed)
 
   if (is.null(targets)) targets <- object@annotation_results$reverse_match

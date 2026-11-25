@@ -15,7 +15,7 @@ build_llm_evidence(
   features = NULL,
   metadata = NULL,
   output_dir = NULL,
-  run_id = "d15_resume"
+  run_id = "msidataset_run"
 )
 }
 \arguments{
@@ -45,6 +45,7 @@ mfc_priority_score, in the original MFC order.}
 }
 \value{
 Named list of extended views and process information.
+If an upstream stage reports a stopping status, return it with empty views.
 }
 \description{
 Derive representative-weighted HMDB/SMPDB and precomputed Reactome/ChEBI

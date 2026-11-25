@@ -8,15 +8,19 @@
 #'
 #' @param object A mass_dataset with ROI labels and generate_pseudo_ms2 history.
 #' @param config A list containing an existing writable `output_dir`. Optionally
-#'   `workers` sets the number of reverse matching workers (default 4). Resources
-#'   and scoring parameters are read from the package's locked configuration.
-#'   Set `MSIDATASET_D15_STUDY_ROOT` and `MSIDATASET_D15_REFERENCE_ROOT`
-#'   to the directories containing the pinned spectral library and reference files.
+#'   `workers` sets the number of reverse matching workers (default 4).
+#' @param resources Optional named list or YAML file supplying `matching_config`, `ms1_library`, and `ms2_library`.
+#'   Each entry is a path or a list with `path` and optional `sha256`.
+#'   Relative paths in YAML resolve against the YAML file's directory.
+#'   With NULL, use the package reference lock and verify its SHA-256 hashes.
+#'   Set `MSIDATASET_REFERENCE_ROOT` to the root of the reference archive.
+#' @details Only negative ion mode is currently supported (`[M−H]⁻`, `[M+Cl]⁻`).
+#'   If supplied, the resource declaration `ion_mode` must be `"negative"`.
 #' @return The input mass_dataset with a match_spectral_library process record;
 #'   its result contains `step6`, an msi_dataset usable by calculate_mfc, or an
 #'   unresolved status with retained input evidence.
 #' @export
-match_spectral_library <- function(object, config) {
+match_spectral_library <- function(object, config, resources = NULL) {
   .msidataset_validate(object, require_roi=TRUE)
   if (!is.list(config) || length(config$output_dir) != 1L ||
       !dir.exists(config$output_dir) || file.access(config$output_dir, 2L) != 0L)
@@ -34,7 +38,8 @@ match_spectral_library <- function(object, config) {
   if (!is.data.frame(pairs)) return(unresolved('UNRESOLVED_PSEUDO', pairs))
   if (anyNA(object@sample_info$region)) return(unresolved('UNRESOLVED_ROI', which(is.na(object@sample_info$region))))
   v <- object@variable_info
-  mz <- .msidataset_feature_mz(v)$mz
+  masses <- .msidataset_feature_mz(v)
+  mz <- masses$mz
   if (!'mz' %in% names(v) || any(!is.finite(mz)))
     return(unresolved('UNRESOLVED_MZ', v))
   if (!nrow(pairs)) return(unresolved('UNRESOLVED_EMPTY_QUERY', pairs))
@@ -53,24 +58,17 @@ match_spectral_library <- function(object, config) {
     return(unresolved('UNRESOLVED_DUPLICATE_QUERY', query))
   if (any(!is.finite(query$anchor_mz) | !is.finite(query$peak_mz)))
     return(unresolved('UNRESOLVED_QUERY_MZ', query))
-  lockfile <- system.file('config','locked_d15.yaml',package='msidataset')
-  if (length(lockfile)!=1L || !file.exists(lockfile)) stop('Locked configuration is missing', call.=FALSE)
-  lock <- .msi_locked_resources(lockfile)
-  required <- c('ms2_library','adp_config','ms1_library')
-  for (key in required) {
-    entry <- lock[[key]]
-    if (is.null(entry$path) || is.null(entry$sha256) || !file.exists(entry$path))
-      stop('Locked resource path or SHA-256 is missing: ', key,
-           '. Check ', entry$root, '.', call.=FALSE)
-    if (!identical(digest::digest(file=entry$path,algo='sha256'),entry$sha256))
-      stop('Locked resource hash mismatch: ',key,call.=FALSE)
-  }
-  cfg <- yaml::read_yaml(lock$adp_config$path)
-  .msi_check_locked_ms1_path(cfg$mfc$ms1_library_path, lock$ms1_library)
+  lock <- .msi_resource_entries(resources)
+  required <- c('ms2_library', 'matching_config', 'ms1_library')
+  provenance <- .msi_verify_resources(lock, required, locked = is.null(resources))
+  cfg <- yaml::read_yaml(lock$matching_config$path)
+  .msi_check_ion_mode(cfg$mfc$ion_mode)
+  .msi_check_ion_mode(cfg$run$ion_mode)
+  if (is.null(resources)) .msi_check_locked_ms1_path(cfg$mfc$ms1_library_path, lock$ms1_library)
   use <- object@sample_info$region != 'VESSEL'
   s <- object@sample_info[use,,drop=FALSE]
   v$feature_id <- v$variable_id
-  v$observed_mz_full <- mz
+  v$observed_mz_full <- masses$observed_mz_full
   legacy <- methods::new('msi_dataset', expression_data=as.matrix(object@expression_data[,use,drop=FALSE]),
     sample_info=as.data.frame(s), variable_info=as.data.frame(v), pseudo_ms2=list(pseudo_ms2_table=query))
   lib <- readRDS(lock$ms2_library$path)
@@ -107,5 +105,6 @@ match_spectral_library <- function(object, config) {
       unsearchable_spectra=unsearchable,
       queries_without_candidates=setdiff(unique(query$anchor_feature_id),
         unique(legacy@annotation_results$entropy_candidates$anchor_feature_id))),
-    list(status='OK',resources=lock[required],workers=as.integer(workers),tolerance_contract=contract))
+    list(status='OK',resource_source=if (is.null(resources)) 'reference_lock' else 'user',
+         resources=provenance,workers=as.integer(workers),tolerance_contract=contract))
 }

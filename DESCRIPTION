@@ -1,6 +1,6 @@
 Package: msidataset
 Title: Mass Spectrometry Imaging Dataset Tools
-Version: 0.2.0
+Version: 0.2.1
 Authors@R: c(
     person("Xiaoyu", "Xu", email = "XIAOYU021@e.ntu.edu.sg", role = c("aut", "cre")),
     person("Xiaotao", "Shen", email = "xiaotao.shen@outlook.com", role = "aut",
@@ -21,6 +21,7 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Depends: R (>= 4.2.0)
 Imports: Cardinal, data.table, digest, dplyr, httr2, jsonlite, massdataset, methods, parallel, stats, tibble, tools, utils, yaml
+Remotes: tidymass/massdataset
 Suggests: testthat (>= 3.0.0), knitr, rmarkdown, igraph
 VignetteBuilder: knitr
 Config/testthat/edition: 3

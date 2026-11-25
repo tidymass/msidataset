@@ -5,16 +5,29 @@
 #' @param vectors Feature matrix or [embed_features()] result.
 #' @param selection Result of [select_k()].
 #' @return Members, stability table, co-clustering matrices, and process history.
+#'   An unsuccessful selection yields an empty membership table and its status.
 #' @examples
 #' \dontrun{clusters <- cluster_features(embedding, selection)}
 #' @export
 cluster_features <- function(vectors, selection) {
   x <- .msi_unit(vectors); k <- selection$selected_k
-  if (length(k) != 1L || is.na(k)) stop("No eligible cluster count")
+  if (is.null(selection$scores) || !identical(nrow(selection$scores), nrow(x))) {
+    stop("Selection score rows must match the number of input vectors")
+  }
+  status <- .msi_stage_status(selection)
+  if (!is.null(status) || length(k) != 1L || is.na(k)) {
+    if (is.null(status)) status <- "NO_ELIGIBLE_K"
+    members <- data.frame(feature_id = character(), cluster_id = integer(),
+                          silhouette_sample = numeric(), PC1 = numeric(), PC2 = numeric())
+    attr(members, "status") <- status
+    return(list(status = status, members = members))
+  }
   fit <- selection$fits[[as.character(k)]]; labels <- fit$cluster - 1L
   ids <- if (is.list(vectors)) vectors$feature_ids else rownames(x)
   if (is.null(ids)) stop("Feature IDs are required")
   n <- nrow(x); js <- matrix(0, 50, k); co <- matrix(0, n, n); exposure <- co
+  restore_rng <- .msi_rng_restorer()
+  on.exit(restore_rng(), add = TRUE)
   set.seed(20261110); samples <- replicate(50, sort(sample.int(n, floor(.9*n))), simplify = FALSE)
   for (s in seq_len(50)) {
     ix <- samples[[s]]; p <- stats::prcomp(x[ix, , drop = FALSE], rank. = 20)$x[, 1:20, drop = FALSE]

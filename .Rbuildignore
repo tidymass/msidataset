@@ -1,7 +1,1 @@
-^\.gitignore$
-^\.gitattributes$
-^\.github$
-^_pkgdown\.yml$
-^(apps|docs|gates|paper)$
-^DECISIONS_PKG\.json$
-^\.(agents|aws|codex)$
+^(?!(DESCRIPTION|LICENSE|NAMESPACE|NEWS\.md|README\.md|R|man|tests|vignettes|inst|src|data|demo|exec|tools|po|configure(\.win)?|cleanup(\.win)?)(/|$))[^/]+$

@@ -25,12 +25,17 @@
 #' @param output_dir Writable directory for new full evidence artifacts.
 #' @param run_id Run identifier included in the evidence view.
 #' @return Named list of extended views and process information.
+#'   If an upstream stage reports a stopping status, return it with empty views.
 #' @examples
 #' \dontrun{views <- build_llm_evidence(base_views, candidates, reps, hmdb, reactome)}
 #' @export
 build_llm_evidence <- function(base_views = NULL, candidates, representatives, hmdb_pathways, reactome_mapping,
                                members = NULL, neighbors = NULL, features = NULL, metadata = NULL,
-                               output_dir = NULL, run_id = "d15_resume") {
+                               output_dir = NULL, run_id = "msidataset_run") {
+  status <- .msi_stage_status(neighbors)
+  if (is.null(status)) status <- .msi_stage_status(members)
+  if (is.null(status) && !missing(representatives)) status <- .msi_stage_status(representatives)
+  if (!is.null(status)) return(list(status = status, views = list()))
   if (is.null(base_views)) {
     if (is.character(metadata) && length(metadata)==1L) metadata <- data.table::fread(metadata,data.table=FALSE,showProgress=FALSE)
     base_views <- .msi_base_views(members,representatives,candidates,neighbors,features,metadata,output_dir,run_id)
@@ -53,6 +58,7 @@ build_llm_evidence <- function(base_views = NULL, candidates, representatives, h
     if (any(!is.finite(cs$mfc_priority_score) | cs$mfc_priority_score < 0)) stop("Invalid MFC priority")
     den <- vapply(reps,function(fid) Reduce(`+`,cs$mfc_priority_score[cs$feature_id==fid],init=0.0),numeric(1)); if (any(den<=0)) stop("Missing representative candidate weights")
     cs$weight <- cs$mfc_priority_score / den[match(cs$feature_id,reps)] / length(reps)
+    # The pathway salts are each a frozen constant for evidence-ID reproducibility.
     make_row <- function(p, source) {
       if (source == "HMDB_SMPDB") {
         ids <- h$HMDB_ID[h$pathway==p]; sub <- cs[cs$HMDB_ID %in% ids,,drop=FALSE]; nm <- p
@@ -86,5 +92,9 @@ build_llm_evidence <- function(base_views = NULL, candidates, representatives, h
     }
     view$functional_support$pathways <- ranked; out[[cid]] <- view
   }
-  list(views=out,process_info=list(function_name="build_llm_evidence",hmdb_pathways=hmdb_pathways,reactome_mapping=reactome_mapping,time=as.character(Sys.time())))
+  info <- list(function_name = "build_llm_evidence",
+               hmdb_pathways = .msi_file_record(hmdb_pathways),
+               reactome_mapping = .msi_file_record(reactome_mapping),
+               time = as.character(Sys.time()))
+  list(views = out, process_info = info)
 }

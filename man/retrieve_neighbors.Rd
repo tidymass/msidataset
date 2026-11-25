@@ -17,6 +17,7 @@ retrieve_neighbors(vectors, representatives, library_path, block_rows = 4096L)
 }
 \value{
 List of \code{neighbors}, cluster \code{merged} neighbors, and process history.
+If an upstream stage reports a stopping status, return that status.
 }
 \description{
 Search the external row-major float32 library by block matrix products.

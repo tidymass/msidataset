@@ -5,11 +5,19 @@
 #' marked in the `issues` attribute rather than silently omitted.
 #' @param vectors Unit matrix or [embed_features()] result.
 #' @param members Data frame with feature_id and cluster_id.
-#' @return Data frame of representatives with an `issues` attribute.
+#' @return Data frame of representatives with an `issues` attribute. An unsuccessful
+#'   upstream stage produces an empty data frame with a `status` attribute.
 #' @examples
 #' \dontrun{representatives <- select_representatives(embedding, clusters$members)}
 #' @export
 select_representatives <- function(vectors, members) {
+  empty <- data.frame(cluster_id=integer(),feature_id=character(),rank=integer(),role=character(),distance_to_center=numeric(),n_members=integer())
+  status <- .msi_stage_status(members)
+  if (is.null(status)) status <- .msi_stage_status(vectors)
+  if (!is.null(status)) {
+    attr(empty, "status") <- status
+    return(empty)
+  }
   x <- .msi_unit(vectors); ids <- if (is.list(vectors)) vectors$feature_ids else rownames(x)
   if (is.null(ids) || anyDuplicated(ids) || anyDuplicated(members$feature_id) || anyNA(match(members$feature_id,ids))) stop("Invalid feature mapping")
   x <- x / sqrt(rowSums(x^2)); result <- list(); issues <- list()
@@ -20,6 +28,6 @@ select_representatives <- function(vectors, members) {
     chosen <- c(center, utils::head(rest, min(n,max(5,ceiling(.1*n)))-1L))
     result[[length(result)+1L]] <- data.frame(cluster_id=cid, feature_id=names[chosen], rank=seq_along(chosen), role=c("center",rep("nearest",length(chosen)-1L)), distance_to_center=1-as.vector(a[chosen,,drop=FALSE] %*% a[center,]), n_members=n)
   }
-  out <- if(length(result)) do.call(rbind,result) else data.frame(cluster_id=integer(),feature_id=character(),rank=integer(),role=character(),distance_to_center=numeric(),n_members=integer())
+  out <- if(length(result)) do.call(rbind,result) else empty
   attr(out,"issues") <- issues; attr(out,"process_info") <- list(function_name="select_representatives", time=as.character(Sys.time())); out
 }

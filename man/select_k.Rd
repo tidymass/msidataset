@@ -11,6 +11,8 @@ select_k(vectors)
 }
 \value{
 List containing the selection table, selected k, PCA scores and fits.
+Status is \code{"INSUFFICIENT_FEATURES"} when there are too few vectors or
+dimensions, or \code{"NO_ELIGIBLE_K"} when no eligible count can be selected.
 }
 \description{
 Run centered PCA, k-means and a cosine silhouette permutation baseline.

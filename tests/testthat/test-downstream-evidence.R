@@ -1,4 +1,4 @@
-test_that("D15r pathway extension uses representative weights", {
+test_that("reference pathway extension uses representative weights", {
   p <- tempfile(); dir.create(p); on.exit(unlink(p,recursive=TRUE))
   h <- data.frame(HMDB_ID=c("A","B"),pathway=c("Path A","Path B"))
   r <- data.frame(HMDB_ID=c("A","B"),pathway_id=c("R1","R2"),pathway_name=c("Reaction A","Reaction B"),pathway_type=c("metabolic","disease_or_drug"),mapping_distance=c(0,1),status="OK")

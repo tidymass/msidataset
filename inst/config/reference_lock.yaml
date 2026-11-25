@@ -1,0 +1,158 @@
+{
+  "parameters": {
+    "pseudo_ms2": {
+      "normalization": "Mean total ion current",
+      "gaussian_sigma_pixels": 1,
+      "minimum_fragment_gap_da": 10,
+      "spearman_min": 0.8,
+      "fragment_tolerance_ppm": 15,
+      "minimum_matched_fragments": 2,
+      "precursor_tolerance_ppm": 10,
+      "fragment_intensity": "Median positive normalized signal, scaled to base peak 100",
+      "spatial_association_score": "Equal weights for active-union Spearman correlation and coactivity fraction"
+    },
+    "mfc": {
+      "adducts": [
+        "[M-H]-",
+        "[M+Cl]-"
+      ],
+      "joint_ms1_and_pseudo_ms2_tier": 1,
+      "candidate_filter": "Keep candidates with library embeddings",
+      "ion_mode": "negative"
+    },
+    "de": {
+      "tile_pixels": [
+        20,
+        20
+      ],
+      "region_min_pixels": 30,
+      "method": "Paired two-sided Wilcoxon across tiles with BH correction",
+      "fdr_lt": 0.05,
+      "absolute_log2fc_gt": 0.25,
+      "epsilon": "Half the smallest positive normalized non-vessel intensity",
+      "regions": "Non-vessel periportal and pericentral pixels",
+      "tile_origin": "Minimum observed x and y"
+    },
+    "embedding": {
+      "dimension": 1024,
+      "weights": "MFC priority score",
+      "normalization": "L2"
+    },
+    "clustering": {
+      "pca_components": 20,
+      "k": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "minimum_cluster_size": 5,
+      "n_init": 50,
+      "seed": 20261111,
+      "null_permutations": 20,
+      "null_n_init": 10,
+      "criterion": "Maximum cosine silhouette less mean permutation baseline, ties to smaller k",
+      "stability_subsamples": 50,
+      "stability_fraction": 0.9,
+      "stability_seed": 20261110,
+      "stability_median_jaccard_gt": 0.5,
+      "null_seed_range": [
+        0,
+        19
+      ]
+    },
+    "representatives": {
+      "count": "max(5, ceiling(0.1 * cluster size))",
+      "selection": "Nearest member to centroid in original unit-vector space, then nearest members, ties by feature ID"
+    },
+    "retrieval": {
+      "top_n": 25,
+      "aggregation": "Union by compound ID, ranked by maximum cosine, ties by compound ID",
+      "pathways_in_neighbors": false
+    },
+    "llm": {
+      "max_input_tokens": 20000,
+      "validation": "Semantic evidence and response validation"
+    }
+  },
+  "resources": {
+    "analysis_protocol": {
+      "path": "reference_runs/liver/protocol/analysis.json",
+      "sha256": "03a68d87c95f5365352de894868313812fb897402817b512af3f6221b77c2e6f"
+    },
+    "annotation_protocol": {
+      "path": "reference_runs/liver/protocol/annotation.json",
+      "sha256": "2e2469e990d5de9e08031b3c00e8e441ce4cdceb5ff3430cc0ea6804b134d5c8"
+    },
+    "csv": {
+      "path": "reference_runs/liver/pixels.csv",
+      "sha256": "047bf6d3f0ed5ed95087401205f98ecce57478d5da949b0f554895bab1ca7053"
+    },
+    "labels": {
+      "path": "reference_runs/liver/labels.tsv",
+      "sha256": "8a3446d1672c05c949ca949c3ecb27740b10faa096edb1fec6be987fc33ce60c"
+    },
+    "meta": {
+      "path": "reference_runs/liver/feature_metadata.tsv",
+      "sha256": "2980bb109f5294fdec09252514db03e53fa8319bdb83ba724670a8f899955710"
+    },
+    "de_reference": {
+      "path": "reference_runs/liver/de/features.tsv",
+      "sha256": "9612df7010fef83cdd19c63883c557257ca724d2fa4102ce338998ede613191a"
+    },
+    "de_all_reference": {
+      "path": "reference_runs/liver/de/all_features.tsv",
+      "sha256": "cfd861094ecfd66b7e9ac81e00142e45e302efa05743dc522cfe425e0f83bca9"
+    },
+    "pseudo_reference": {
+      "path": "reference_runs/liver/spectral/pseudo_ms2.tsv",
+      "sha256": "1d672cc78a3ea99991ea9a9a622a9184308431bd5e4e3be361d8e64ef6d33b28"
+    },
+    "mfc_reference": {
+      "path": "reference_runs/liver/mfc/candidates.tsv",
+      "sha256": "4a491c0148bfd65f6a5bc91ed2cf66d159a8c20d14cd34b1dab555a87ef672c0"
+    },
+    "step6": {
+      "path": "reference_runs/liver/spectral/matches.rds",
+      "sha256": "21cf55d0c493261ceb09a4f534051092c9c827984c710dc6bdd186700d273586"
+    },
+    "query": {
+      "path": "reference_runs/liver/spectral/query.tsv",
+      "sha256": "40a488cbe9c4f071ad79ce70911ebdf8845322dbe8c4a4d64dfd8c6e792980a3"
+    },
+    "features": {
+      "path": "reference_runs/liver/spectral/features.tsv",
+      "sha256": "85b308ce299babf14063478a054d31152f7bface28c8615480878b73f5776a1b"
+    },
+    "matching_config": {
+      "path": "ms1_library/matching_config.yaml",
+      "sha256": "31ac5dbf3195f892b8c7339fed51a8f4be34c28b865d1a89251dc2c585a64ab4"
+    },
+    "vector_meta": {
+      "path": "vector_library/meta.json",
+      "sha256": "967a8fe25a6bd0676eb46df6e873072d1536ab51c37079daa7c001195297ffb1"
+    },
+    "vector_ids": {
+      "path": "vector_library/ids.tsv",
+      "sha256": "b90c76361febf45306120a50d0bc4573eb27a7ab4b8e05b9f4de11d535269e3e"
+    },
+    "vector_data": {
+      "path": "vector_library/embeddings.f32",
+      "sha256": "d9701039b88a79e82566d46442db22a65ae9abe8e21ed8da03251a697eeb81da"
+    },
+    "ms1_library": {
+      "path": "ms1_library/derived_library/msi_database_ms1_flat_v2.rds",
+      "sha256": "3d882d0df421e5add609c7c0270964fc1ea992e2c19228827836315d052f4f82"
+    },
+    "ms1_project_root": {
+      "path": "ms1_library"
+    },
+    "ms2_library": {
+      "path": "spectral_libraries/lipidblast_hmdb_negative.rds",
+      "sha256": "8ddb1bf93fbed04ca8aeda076df93bd4fb334c8b3396ca1e457ca932dd88cc02"
+    }
+  }
+}

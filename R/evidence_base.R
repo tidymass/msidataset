@@ -6,7 +6,7 @@
   canonical <- .msi_python_json(list(type, ordered))
   c(list(evidence_id=paste0('E_',substr(digest::digest(charToRaw(enc2utf8(canonical)),algo='sha256',serialize=FALSE),1L,24L)),type=type),content)
 }
-.msi_base_views <- function(members, representatives, candidates, neighbors, features, metadata, output_dir, run_id='d15_resume') {
+.msi_base_views <- function(members, representatives, candidates, neighbors, features, metadata, output_dir, run_id='msidataset_run') {
   required <- list(members=c('cluster_id','feature_id'), representatives=c('cluster_id','feature_id','rank'),
                    candidates=c('feature_id','HMDB_ID','compound_name','best_adduct','mfc_priority_score','rank_within_feature'),
                    features=c('feature_id','mz','log2FC'), metadata=c('HMDB_ID','taxonomy_path'))
@@ -66,6 +66,11 @@
     other <- .msi_summary_evidence('classes_other',list(weighted_support=NULL,feature_coverage=NULL,denominator_features=as.integer(k),status='NOT_PRECOMPUTED_OVERLAPPING_LABELS'))
     unknown_summary <- .msi_summary_evidence('classes_unknown',list(weighted_support=unknown,feature_coverage=NULL,denominator_features=as.integer(k),status='SOURCE_SUMMARY'))
     support <- list(classes=class_view,classes_other=other,classes_unknown=unknown_summary,pathways=list(),pathways_other=NULL,pathways_unknown=NULL)
+    # Preserve the historical cluster metadata ID for the renamed default run.
+    hash_meta <- meta
+    if (identical(run_id, 'msidataset_run')) hash_meta$run_id <- 'd15_resume'
+    cluster_metadata <- .msi_summary_evidence('cluster_metadata', hash_meta)
+    cluster_metadata$run_id <- run_id
     pack <- c(meta,list(member_feature_ids=as.list(as.character(members$feature_id[as.character(members$cluster_id)==cid])),representatives=rep_views,candidates=cs,functional_support=support,semantic_neighbors=nn,cluster_semantics=list(classes=semantics),uncertainty=uncertainty,cluster_evidence=list(root)))
     fp <- file.path(output_dir,paste0('C',cid,'.json')); writeLines(.msi_python_json(pack),fp,useBytes=TRUE)
     trunc$full_evidence_path <- fp; trunc$full_evidence_sha256 <- digest::digest(file=fp,algo='sha256')
@@ -73,7 +78,7 @@
     out[[cid]] <- c(meta,list(cluster_evidence=list(root),is_control=FALSE,control_variant=NULL,deterministic_followup_feature_ids=list(),representatives=rep_views,functional_support=support,independent_evidence=structure(list(),names=character()),uncertainty=uncertainty,truncation=trunc,
       core_representativeness=.msi_summary_evidence('core_representativeness',list(k=as.integer(k),n_members=as.integer(nmembers),status='CORE_VS_WHOLE_COVERAGE_NOT_PRECOMPUTED')),
       missing_resources=.msi_summary_evidence('missing_resources',list(no_card_count=NULL,no_embedding_count=NULL,status='COUNTS_NOT_AVAILABLE_IN_FULL_EVIDENCE')),
-      uncertainty_evidence=lapply(uncertainty,function(s).msi_summary_evidence('uncertainty',list(text=s))),cluster_metadata=.msi_summary_evidence('cluster_metadata',meta),semantic_neighbors=nn,cluster_semantics=list(classes=semantics)))
+      uncertainty_evidence=lapply(uncertainty,function(s).msi_summary_evidence('uncertainty',list(text=s))),cluster_metadata=cluster_metadata,semantic_neighbors=nn,cluster_semantics=list(classes=semantics)))
   }
   out
 }

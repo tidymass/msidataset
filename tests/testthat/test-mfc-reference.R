@@ -1,24 +1,25 @@
-test_that("D15 step6 through MFC reproduces the preregistered regression", {
-  skip_if_not(identical(Sys.getenv("MSIDATASET_RUN_D15_MFC"), "true"),
-              "Set MSIDATASET_RUN_D15_MFC=true for the large external D15 regression")
-  cfg <- locked_d15()
+test_that("Step6 through MFC reproduces the reference results", {
+  skip_if_not(identical(Sys.getenv("MSIDATASET_RUN_REFERENCE_MFC"), "true"),
+              "Set MSIDATASET_RUN_REFERENCE_MFC=true for the large external reference regression")
+  cfg <- reference_lock()
   keys <- c("csv", "labels", "meta", "step6", "mfc_reference")
   paths <- lapply(cfg[keys], `[[`, "path")
-  d15_require_files(unlist(paths))
-  resource_keys <- c("adp_config", "ms1_library", "ms1_project_root", "vector_ids")
-  d15_require_files(vapply(cfg[resource_keys], `[[`, character(1), "path"))
-  study <- d15_fixture_root("MSIDATASET_D15_STUDY_ROOT")
-  reports <- d15_fixture_root("MSIDATASET_D15_REPORTS_ROOT")
-  form_path <- file.path(study, "runs/d11_kidney/report_d11/formula.tsv")
-  qc_path <- file.path(reports, "D12", "formula_qc.tsv")
-  d15_require_files(c(form_path, qc_path))
+  reference_require_files(unlist(paths))
+  resource_keys <- c("matching_config", "ms1_library", "ms1_project_root", "vector_ids")
+  reference_require_files(vapply(cfg[resource_keys], `[[`, character(1), "path"))
+  study <- reference_fixture_root()
+  reports <- reference_fixture_root()
+  form_path <- file.path(study, "reference_runs/liver/evaluation/library_formulas.tsv")
+  qc_path <- file.path(reports, "reference_runs/liver/evaluation/formula_qc.tsv")
+  reference_require_files(c(form_path, qc_path))
   meta <- data.table::fread(paths$meta, data.table = FALSE)
   x <- read_msi_data(paths$csv, mz = meta[["m/z"]] - 1.007276,
                      feature_id = sprintf("F%03d", meta$col_index))
+  expect_identical(.msidataset_feature_mz(x@variable_info)$mz, x@variable_info$mz)
   x <- define_roi(x, data.table::fread(paths$labels, data.table = FALSE))
   x <- detect_de_features(x)
   x <- generate_pseudo_ms2(x)
-  out <- tempfile("mfc-d15-"); dir.create(out)
+  out <- tempfile("mfc-reference-"); dir.create(out)
   x <- calculate_mfc(x, readRDS(paths$step6), out)
   z <- x@process_info$calculate_mfc$result
   expect_identical(z$status, "OK")
@@ -32,7 +33,7 @@ test_that("D15 step6 through MFC reproduces the preregistered regression", {
   expect_equal(length(unique(observed$feature_id)), 149)
   expect_equal(nrow(x@variable_info), 156)
 
-  # Author formulas are read only here, after inference, for preregistered evaluation.
+  # Author formulas are read only here, after inference, for reference evaluation.
   formulas <- data.table::fread(form_path, data.table = FALSE)
   qc <- data.table::fread(qc_path, data.table = FALSE)
   canonical <- function(v) {

@@ -11,18 +11,18 @@ uncertain.
 
 ## Installation
 
-Install Cardinal from Bioconductor, then install the package from GitHub. The
-GitHub repository is private, so installation requires repository access.
+Install Cardinal from Bioconductor and massdataset from GitHub before installing msidataset.
 
 ```r
 install.packages(c("BiocManager", "remotes"))
 BiocManager::install("Cardinal")
+remotes::install_github("tidymass/massdataset")
 remotes::install_github("tidymass/msidataset")
 ```
 
 ## Minimal example
 
-This example uses the small synthetic pixel CSV from the object adapter test.
+This example creates a small synthetic pixel CSV.
 The columns contain x, y, total ion current (TIC), and two feature intensities. Both analyses record their results in the `mass_dataset` object's
 `process_info`.
 
@@ -70,14 +70,22 @@ See `vignette("msidataset")` for an example with multiple paired blocks.
 
 ## External resources and local annotation
 
-Spectrum matching and MFC scoring use the reference resources pinned by SHA-256
-in `inst/config/locked_d15.yaml` in the source tree. Set
-`MSIDATASET_D15_STUDY_ROOT`, `MSIDATASET_D15_REFERENCE_ROOT`, and
-`MSIDATASET_D15_DATA_ROOT` to the directories containing the paths relative to
-those roots in the lock file. `MSIDATASET_D15_REPORTS_ROOT` locates the
-preregistration records and other optional regression fixtures. Supply a separate
-vector library directory containing `meta.json`, `ids.tsv`, and
-`embeddings.f32` for embedding and retrieval.
+Set `MSIDATASET_REFERENCE_ROOT` to the archive containing `spectral_libraries/`,
+`ms1_library/`, `vector_library/`, and `reference_runs/liver/`. Spectrum matching
+and MFC scoring verify the SHA-256 hashes in `inst/config/reference_lock.yaml`.
+For embedding and retrieval, pass the `vector_library/` directory containing
+`meta.json`, `ids.tsv`, and `embeddings.f32`.
+
+`match_spectral_library()` and `calculate_mfc()` also accept a named `resources`
+list or a YAML file. Use `matching_config` and `ms1_library` for both functions,
+`ms2_library` for spectral matching, and `vector_ids` for MFC scoring. Entries
+can be paths or lists with `path` and optional `sha256`. YAML paths are relative
+to the YAML file. The process record includes the resource source and file hashes.
+These functions currently support only negative ion mode ([M−H]⁻, [M+Cl]⁻).
+When declaring an ion mode, use `ion_mode: negative`.
+
+`run_pipeline()` ends at evidence construction by default. Call
+`annotate_clusters()` separately with an evidence view.
 
 Local annotation is optional. Set `config$base_url` to the loopback HTTP
 address and port of your llama.cpp-compatible server, and supply the model,
@@ -88,13 +96,8 @@ LLM output is for review and never changes MFC ranking. Reference labels,
 gold standards, author names and formulas, and evaluation truth stay outside
 model input.
 
-The installed `validation/validation_summary.tsv` and companion discrepancy
-table retain the original Chinese descriptions and recorded values. Archive root
-configuration for optional recomputation is described in
-`inst/validation/README.md` in the source tree.
-
 ## Citation and license
 
-Xiaoyu Xu and Xiaotao Shen. msidataset 0.2.0. Manuscript in preparation.
+Xiaoyu Xu and Xiaotao Shen. msidataset 0.2.1. Manuscript in preparation.
 
 MIT. See [LICENSE](LICENSE).

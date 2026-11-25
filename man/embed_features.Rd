@@ -21,7 +21,8 @@ embed_features(
 \item{weight_rule}{Only \code{"mfc"} is supported.}
 }
 \value{
-A list containing \code{unit}, \code{feature_ids}, \code{coverage}, and \code{process_info}.
+A list containing \code{unit}, \code{feature_ids}, \code{coverage}, and \code{process_info}. A result with no embedded features has
+status \code{"INSUFFICIENT_FEATURES"}.
 }
 \description{
 Normalize each available library vector, form the MFC-priority-weighted

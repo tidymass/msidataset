@@ -52,7 +52,7 @@
 #' Construct the OpenAI-compatible request using a configured prompt and output
 #' schema. Only loopback HTTP endpoints are accepted. Response validation uses
 #' the JSON Schema subset used by the registered output schema. With `vocabulary_cards` in config,
-#' responses also receive v2p2 semantic checks. All prose remains for review.
+#' responses also receive semantic evidence checks. All prose remains for review.
 #' Optional token counting uses the local server's actual tokenizer.
 #' @param view An evidence view parsed with `jsonlite::parse_json()`.
 #' @param config List with `base_url`, `model`, `system_prompt`, `output_schema`,
@@ -83,7 +83,7 @@ annotate_clusters <- function(view, config, perform = FALSE, count_tokens = FALS
   body <- list(model=config$model,temperature=config$temperature,max_tokens=config$max_tokens,
     response_format=list(type="json_schema",json_schema=list(name="module_annotation",strict=TRUE,schema=schema)),
     messages=list(list(role="system",content=prompt),list(role="user",content=.msi_python_json(view))),top_k=config$top_k,seed=config$seed)
-  info <- list(function_name="annotate_clusters",model=config$model,base_url=url,schema=config$output_schema,performed=isTRUE(perform),validation="SCHEMA_ONLY",d15r_accepted=FALSE,time=as.character(Sys.time()))
+  info <- list(function_name="annotate_clusters",model=config$model,base_url=url,schema=.msi_file_record(config$output_schema),performed=isTRUE(perform),validation="SCHEMA_ONLY",accepted=FALSE,time=as.character(Sys.time()))
   if (isTRUE(count_tokens)) {
     count <- function() .msi_token_count(url, body$messages)
     update <- function() { body$messages[[2]]$content <<- .msi_python_json(view) }
@@ -116,11 +116,11 @@ annotate_clusters <- function(view, config, perform = FALSE, count_tokens = FALS
   }
   if (!is.null(response)) {
     if (isTRUE(perform)) stop("Cannot provide response and perform a request")
-    if (is.null(config$vocabulary_cards)) stop("vocabulary_cards is required for v2p2 validation")
-    validation <- .msi_validate_d15r(response, view, schema, .msi_vocabulary(config$vocabulary_cards))
-    info$validation <- "D15R_V2P2"
+    if (is.null(config$vocabulary_cards)) stop("vocabulary_cards is required for semantic validation")
+    validation <- .msi_validate_annotation(response, view, schema, .msi_vocabulary(config$vocabulary_cards))
+    info$validation <- "SEMANTIC_V2"
     info$semantic_valid <- !length(validation$errors)
-    info$d15r_accepted <- info$semantic_valid && !is.null(info$input_tokens) && info$input_tokens <= 20000L
+    info$accepted <- info$semantic_valid && !is.null(info$input_tokens) && info$input_tokens <= 20000L
     return(list(request=body,answer=response,validation=validation,process_info=info))
   }
   if (!isTRUE(perform)) return(list(request=body,process_info=info))
@@ -140,10 +140,10 @@ annotate_clusters <- function(view, config, perform = FALSE, count_tokens = FALS
   parse_failed <- !is.character(content) || length(content)!=1L || is.na(content)
   answer <- if (!parse_failed) tryCatch(jsonlite::parse_json(content),error=function(e) { parse_failed <<- TRUE; NULL }) else NULL
   validation <- if (parse_failed) list(errors="INVALID_RESPONSE",review_prose=character()) else
-    .msi_validate_d15r(answer, view, schema, .msi_vocabulary(config$vocabulary_cards))
+    .msi_validate_annotation(answer, view, schema, .msi_vocabulary(config$vocabulary_cards))
   if (identical(choice$finish_reason,"length")) validation$errors <- c(validation$errors,"TRUNCATED_LENGTH")
-  info$validation <- "D15R_V2P2"
+  info$validation <- "SEMANTIC_V2"
   info$semantic_valid <- !length(validation$errors)
-  info$d15r_accepted <- info$semantic_valid && !is.null(info$input_tokens) && info$input_tokens <= 20000L
+  info$accepted <- info$semantic_valid && !is.null(info$input_tokens) && info$input_tokens <= 20000L
   list(request=body,answer=answer,validation=validation,process_info=info)
 }

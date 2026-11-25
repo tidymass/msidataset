@@ -1,0 +1,70 @@
+test_that("empty and small embeddings propagate through downstream stages", {
+  candidates <- data.frame(feature_id = character(), HMDB_ID = character(),
+                           mfc_priority_score = numeric())
+  empty <- embed_features(candidates, "unused")
+  expect_identical(empty$status, "INSUFFICIENT_FEATURES")
+  expect_equal(nrow(empty$unit), 0L)
+  without_candidates <- embed_features(candidates, "unused", c("f1", "f2"))
+  expect_identical(without_candidates$status, "INSUFFICIENT_FEATURES")
+  expect_identical(without_candidates$coverage$feature_id, c("f1", "f2"))
+  expect_true(all(without_candidates$coverage$status == "NO_CANDIDATE"))
+  small <- matrix(1, nrow = 3L, ncol = 20L)
+  for (vectors in list(empty, small)) {
+    selection <- select_k(vectors)
+    expect_identical(selection$status, "INSUFFICIENT_FEATURES")
+    clusters <- cluster_features(vectors, selection)
+    expect_identical(clusters$status, selection$status)
+    expect_identical(build_llm_evidence(members = clusters$members)$status, clusters$status)
+    reps <- select_representatives(vectors, clusters$members)
+    expect_identical(attr(reps, "status"), clusters$status)
+    near <- retrieve_neighbors(vectors, reps, "unused")
+    expect_identical(near$status, clusters$status)
+    expect_identical(build_llm_evidence(neighbors = near)$status, near$status)
+  }
+  identical_vectors <- matrix(1, nrow = 23L, ncol = 20L)
+  expect_identical(select_k(identical_vectors)$status, "NO_ELIGIBLE_K")
+  selection <- list(selected_k = NA_integer_, scores = matrix(0, 3L, 20L))
+  expect_identical(cluster_features(small, selection)$status, "NO_ELIGIBLE_K")
+  expect_error(cluster_features(small[-1, ], selection), "score rows")
+})
+
+test_that("the default pipeline skips downstream work for zero differential features", {
+  work <- tempfile()
+  dir.create(work)
+  on.exit(unlink(work, recursive = TRUE))
+  pixels <- expand.grid(x = seq_len(10L), y = seq_len(6L))
+  input <- file.path(work, "pixels.csv")
+  write.table(cbind(pixels, tic = 100, intensity = 4), input,
+              sep = ",", row.names = FALSE, col.names = FALSE)
+  config <- list(input = list(path = input, mz = 100),
+                 labels = transform(pixels, region = rep(c("periportal", "pericentral"), each = 30L)))
+  cache <- file.path(work, "cache")
+  result <- run_pipeline(config, cache_dir = cache)
+  expect_false(any(result$object@process_info$detect_de_features$result$is_de))
+  expect_identical(result$status, "INSUFFICIENT_FEATURES")
+  expect_identical(result$evidence$status, result$status)
+  expect_identical(tail(names(result$cache_keys), 1L), "build_llm_evidence")
+  expect_identical(result$cache_keys, run_pipeline(config, cache_dir = cache)$cache_keys)
+  expect_error(run_pipeline(config, to = "annotate_clusters", cache_dir = cache), "Invalid")
+})
+
+test_that("selection, clustering and decoy generation restore the caller's random state", {
+  restore <- .msi_rng_restorer()
+  on.exit(restore(), add = TRUE)
+  set.seed(19)
+  x <- matrix(stats::rnorm(40L * 20L, sd = .1), ncol = 20L)
+  x[1:20, 1L] <- x[1:20, 1L] + 1
+  x[21:40, 1L] <- x[21:40, 1L] - 1
+  rownames(x) <- paste0("f", seq_len(nrow(x)))
+  seed <- .Random.seed
+  selection <- select_k(x)
+  expect_false(is.na(selection$selected_k))
+  expect_identical(.Random.seed, seed)
+  cluster_features(x, selection)
+  expect_identical(.Random.seed, seed)
+  `73_generate_decoy_library`(NULL, targets = data.frame())
+  expect_identical(.Random.seed, seed)
+  rm(".Random.seed", envir = .GlobalEnv)
+  select_k(x)
+  expect_false(exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE))
+})

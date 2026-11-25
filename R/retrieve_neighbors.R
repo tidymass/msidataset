@@ -9,10 +9,14 @@
 #' @param library_path Directory understood by [read_vector_library()].
 #' @param block_rows Positive integer rows per block.
 #' @return List of `neighbors`, cluster `merged` neighbors, and process history.
+#'   If an upstream stage reports a stopping status, return that status.
 #' @examples
 #' \dontrun{near <- retrieve_neighbors(embedding, representatives, library_path)}
 #' @export
 retrieve_neighbors <- function(vectors, representatives, library_path, block_rows = 4096L) {
+  status <- .msi_stage_status(representatives)
+  if (is.null(status)) status <- .msi_stage_status(vectors)
+  if (!is.null(status)) return(list(status = status, neighbors = NULL, merged = NULL))
   x <- .msi_unit(vectors); ids <- if (is.list(vectors)) vectors$feature_ids else rownames(x)
   ix <- match(representatives$feature_id, ids)
   if (is.null(ids) || anyNA(ix) || anyDuplicated(ids) || !all(c("cluster_id", "feature_id") %in% names(representatives)) || length(block_rows)!=1L || is.na(block_rows) || block_rows < 1 || block_rows != floor(block_rows)) stop("Invalid representatives or block size")
@@ -41,5 +45,9 @@ retrieve_neighbors <- function(vectors, representatives, library_path, block_row
       g <- g[order(-g$cosine,g$feature_id,g$rank),,drop=FALSE]; best <- g[1,,drop=FALSE]; best$n_reps_hit <- length(unique(g$feature_id)); best$max_cosine <- best$cosine; best
     }); z <- do.call(rbind,rows); utils::head(z[order(-z$max_cosine,z$HMDB_ID),,drop=FALSE],25L)
   })
-  list(neighbors=near,merged=do.call(rbind,merged),process_info=list(function_name="retrieve_neighbors", library_path=library_path,block_rows=block_rows,top_n=25L,time=as.character(Sys.time())))
+  info <- list(function_name = "retrieve_neighbors",
+               library = list(basename = basename(library_path),
+                              ids = .msi_file_record(file.path(library_path, "ids.tsv"))),
+               block_rows = block_rows, top_n = 25L, time = as.character(Sys.time()))
+  list(neighbors = near, merged = do.call(rbind, merged), process_info = info)
 }

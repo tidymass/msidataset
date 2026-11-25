@@ -33,4 +33,4 @@ unlink(input)
 ```
 
 To continue from pseudo-MS/MS to ranked candidates and semantic modules, see
-`vignette("d15_liver_walkthrough")`.
+`vignette("reference_liver_walkthrough")`.

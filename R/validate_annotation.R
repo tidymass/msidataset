@@ -43,7 +43,7 @@
   if (percentages) values / 100 else values
 }
 .msi_regex_quote <- function(x) gsub('([][{}()+*^$|\\\\?.])', '\\\\\\1', x, perl=TRUE)
-.msi_validate_d15r <- function(answer, view, schema, vocabulary) {
+.msi_validate_annotation <- function(answer, view, schema, vocabulary) {
   valid <- tryCatch({.msi_validate_schema(answer,schema); TRUE}, error=function(e) FALSE)
   if (!valid) return(list(errors='SCHEMA_INVALID', review_prose=character()))
   claims <- c(list(answer$module_name_candidate_supported, answer$core_representativeness), answer$main_classes,

@@ -1,4 +1,4 @@
-test_that("D13 library filter preserves excluded candidates and resolves ties", {
+test_that("reference library filter preserves excluded candidates and resolves ties", {
   x <- data.frame(feature_id = c("F1", "F1", "F1", "F2"),
                   HMDB_ID = c("B", "A", "X", NA), mfc_priority_score = c(.3, .3, .9, .2),
                   score_gap = 0, relative_support = 1)
@@ -10,7 +10,7 @@ test_that("D13 library filter preserves excluded candidates and resolves ties", 
   expect_equal(nrow(z$kept) + nrow(z$removed), nrow(x))
 })
 
-test_that("D7 query preparation retains and flags unresolved fragments", {
+test_that("reference query preparation retains and flags unresolved fragments", {
   path <- tempfile(fileext = ".csv")
   writeLines(c("1,1,100,2,4", "2,1,100,4,8"), path)
   x <- read_msi_data(path, mz = c(100, 50))

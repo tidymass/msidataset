@@ -2,6 +2,8 @@ test_that("CSV reading and ROI labels preserve values and history", {
   path <- tempfile(fileext = ".csv")
   writeLines(c("1,2,100,5,10", "2,2,200,7,11"), path)
   x <- read_msi_data(path, "csv", mz = c(50, 60))
+  expect_identical(x@process_info$read_msi_data$input,
+                   list(basename = basename(path), sha256 = digest::digest(file = path, algo = "sha256")))
   expect_s4_class(x, "mass_dataset")
   expect_equal(as.numeric(unlist(x@expression_data[1, ], use.names = FALSE)), c(5, 7))
   y <- define_roi(x, data.frame(x = c(1,2), y = c(2,2), region = c("periportal", "pericentral")))

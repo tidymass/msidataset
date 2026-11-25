@@ -68,7 +68,7 @@ generate_pseudo_ms2 <- function(xy, tic = NULL, intensity = NULL, mz = NULL, fea
     0.5 * rho + 0.5 * sum(x > 0 & y > 0) / sum(u)
   }, numeric(1))
   a <- pairs[, 1]; b <- pairs[, 2]
-  ans <- tibble::tibble(sas_d7 = sas, precursor_feature_id = feature_id[a], precursor_mz = mz[a],
+  ans <- tibble::tibble(sas = sas, precursor_feature_id = feature_id[a], precursor_mz = mz[a],
     fragment_feature_id = feature_id[b], fragment_mz = mz[b], spearman_rho = corr[pairs])
   attr(ans, "process_info") <- list(function_name = "generate_pseudo_ms2", sigma_pixels = 1,
     min_rho = 0.8, mz_gap_da = 10, constant_features = constant, time = as.character(Sys.time()))

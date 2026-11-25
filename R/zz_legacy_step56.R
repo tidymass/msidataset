@@ -2858,7 +2858,7 @@ function(object,
     }
     tolerance_contract <- .msi_resolve_tolerance_contract(
       tolerance_contract,
-      feature_mz = object@variable_info$mz
+      feature_mz = .msidataset_feature_mz(object@variable_info)$mz
     )
     retrieval_policy <- tolerance_contract$fragment_retrieval
     ppm <- as.numeric(retrieval_policy$ppm)
@@ -4633,7 +4633,7 @@ function(object,
     }
     tolerance_contract <- .msi_resolve_tolerance_contract(
       tolerance_contract,
-      feature_mz = object@variable_info$mz
+      feature_mz = .msidataset_feature_mz(object@variable_info)$mz
     )
     evidence_policy <- tolerance_contract$fragment_evidence
     fragment_tolerance_ppm <- as.numeric(evidence_policy$ppm)

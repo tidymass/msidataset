@@ -17,3 +17,19 @@
   }, numeric(1))
 }
 .msi_fit <- function(p, k, nstart = 50L) stats::kmeans(p, centers = k, nstart = nstart, iter.max = 300L)
+
+.msi_stage_status <- function(result) {
+  status <- if (is.data.frame(result)) attr(result, "status") else if (is.list(result)) result$status
+  if (identical(status, "NO_ELIGIBLE_K") || identical(status, "INSUFFICIENT_FEATURES")) status
+}
+
+.msi_rng_restorer <- function() {
+  seed <- get0(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+  function() {
+    if (!is.null(seed)) {
+      assign(".Random.seed", seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }
+}

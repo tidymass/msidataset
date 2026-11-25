@@ -13,6 +13,7 @@ cluster_features(vectors, selection)
 }
 \value{
 Members, stability table, co-clustering matrices, and process history.
+An unsuccessful selection yields an empty membership table and its status.
 }
 \description{
 Uses the selected PCA fit and 50 independent 90\% subsamples, each refitting

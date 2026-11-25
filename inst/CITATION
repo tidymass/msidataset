@@ -1,0 +1,6 @@
+bibentry(
+  bibtype = "Unpublished",
+  title = "msidataset: Mass Spectrometry Imaging Dataset Tools",
+  author = c(person("Xiaoyu", "Xu"), person("Xiaotao", "Shen")),
+  note = "Manuscript in preparation"
+)

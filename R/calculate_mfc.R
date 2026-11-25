@@ -12,12 +12,18 @@
 #' @param step6 A compatible legacy msi_dataset after step6; when NULL, use
 #'   the most recent match_spectral_library result stored in object.
 #' @param output_dir Existing writable directory for the scorer audit tables.
-#'   Set `MSIDATASET_D15_REFERENCE_ROOT` and `MSIDATASET_D15_DATA_ROOT`
-#'   to the directories containing the pinned scoring resources.
+#' @param resources Optional named list or YAML file supplying `matching_config`, `ms1_library`, and `vector_ids`.
+#'   Each entry is a path or a list with `path` and optional `sha256`.
+#'   Relative paths in YAML resolve against the YAML file's directory.
+#'   With NULL, use the package reference lock and verify its SHA-256 hashes.
+#'   Set `MSIDATASET_REFERENCE_ROOT` to the root of the reference archive.
+#'   An optional `ms1_project_root` defaults to the MS1 library directory.
+#' @details Only negative ion mode is currently supported (`[M−H]⁻`, `[M+Cl]⁻`).
+#'   If supplied, the resource declaration `ion_mode` must be `"negative"`.
 #' @return The mass_dataset with candidates, excluded rows, and the full MFC
 #'   result recorded in process_info.
 #' @export
-calculate_mfc <- function(object, step6 = NULL, output_dir) {
+calculate_mfc <- function(object, step6 = NULL, output_dir, resources = NULL) {
   if (is.null(step6)) {
     keys <- grep('^match_spectral_library(_[0-9]+)?$', names(object@process_info), value=TRUE)
     if (!length(keys)) stop('No spectral library match result is available', call.=FALSE)
@@ -100,24 +106,14 @@ calculate_mfc <- function(object, step6 = NULL, output_dir) {
     step6@variable_info <- old_vars
   }
   step6@pseudo_ms2$pseudo_ms2_table <- query
-  lock_path <- system.file('config', 'locked_d15.yaml', package='msidataset')
-  lock <- .msi_locked_resources(lock_path)
-  required <- c('adp_config','ms1_library','ms1_project_root','vector_ids')
-  if (!all(required %in% names(lock))) stop('Locked resource keys are missing', call.=FALSE)
+  lock <- .msi_resource_entries(resources)
+  required <- c('matching_config', 'ms1_library', 'ms1_project_root', 'vector_ids')
+  provenance <- .msi_verify_resources(lock, required, locked = is.null(resources))
   paths <- lapply(lock[required], `[[`, 'path')
-  missing <- !vapply(paths, file.exists, logical(1))
-  if (any(missing)) {
-    roots <- vapply(lock[required[missing]], function(entry) entry$root, character(1))
-    stop('Locked MFC resources are missing: ', paste(names(paths)[missing], collapse=', '),
-         '. Check ', paste(unique(roots), collapse=', '), '.', call.=FALSE)
-  }
-  for (key in c('adp_config','ms1_library','vector_ids')) {
-    if (is.null(lock[[key]]$sha256) ||
-        !identical(digest::digest(file=paths[[key]], algo='sha256'), lock[[key]]$sha256))
-      stop(paste('Locked resource hash mismatch:', key), call.=FALSE)
-  }
-  cfg <- yaml::read_yaml(paths$adp_config)
-  .msi_check_locked_ms1_path(cfg$mfc$ms1_library_path, lock$ms1_library)
+  cfg <- yaml::read_yaml(paths$matching_config)
+  .msi_check_ion_mode(cfg$mfc$ion_mode)
+  .msi_check_ion_mode(cfg$run$ion_mode)
+  if (is.null(resources)) .msi_check_locked_ms1_path(cfg$mfc$ms1_library_path, lock$ms1_library)
   adducts <- c('[M-H]-','[M+Cl]-')
   fmc <- utils::modifyList(cfg$mfc,list(enabled=TRUE,ion_mode='negative',
     ms1_flat_project_root=paths$ms1_project_root,ms1_library_path=paths$ms1_library,
@@ -144,8 +140,9 @@ calculate_mfc <- function(object, step6 = NULL, output_dir) {
   all <- utils::read.csv(file.path(output_dir,'tables','mfc_final_candidates_all_ranked.csv'),check.names=FALSE)
   ids <- data.table::fread(paths$vector_ids,select='HMDB_ID',showProgress=FALSE)$HMDB_ID
   filtered <- .mfc_filter_candidates(all,ids)
-  info <- list(status='OK',ion_mode='negative',adducts=adducts,source='D15 d9 step6',
-               resource_paths=paths, time=as.character(Sys.time()))
+  info <- list(status='OK',ion_mode='negative',adducts=adducts,source='Spectral match evidence',
+               resource_source=if (is.null(resources)) 'reference_lock' else 'user',
+               resources=provenance, time=as.character(Sys.time()))
   .msidataset_append_step(object,'calculate_mfc',list(status='OK',query=query,
       candidates_all=all,candidates=filtered$kept,removed=filtered$removed,
       mfc_details=scored@annotation_results$fmc),info)

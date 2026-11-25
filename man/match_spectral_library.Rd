@@ -4,16 +4,19 @@
 \alias{match_spectral_library}
 \title{Match pseudo-MS2 spectra against the locked spectral library}
 \usage{
-match_spectral_library(object, config)
+match_spectral_library(object, config, resources = NULL)
 }
 \arguments{
 \item{object}{A mass_dataset with ROI labels and generate_pseudo_ms2 history.}
 
 \item{config}{A list containing an existing writable \code{output_dir}. Optionally
-\code{workers} sets the number of reverse matching workers (default 4). Resources
-and scoring parameters are read from the package's locked configuration.
-Set \code{MSIDATASET_D15_STUDY_ROOT} and \code{MSIDATASET_D15_REFERENCE_ROOT}
-to the directories containing the pinned spectral library and reference files.}
+\code{workers} sets the number of reverse matching workers (default 4).}
+
+\item{resources}{Optional named list or YAML file supplying \code{matching_config}, \code{ms1_library}, and \code{ms2_library}.
+Each entry is a path or a list with \code{path} and optional \code{sha256}.
+Relative paths in YAML resolve against the YAML file's directory.
+With NULL, use the package reference lock and verify its SHA-256 hashes.
+Set \code{MSIDATASET_REFERENCE_ROOT} to the root of the reference archive.}
 }
 \value{
 The input mass_dataset with a match_spectral_library process record;
@@ -26,4 +29,8 @@ object is retained; results and provenance are appended to process_info.
 Spectra without a finite precursor cannot enter the registered precursor
 search and are counted in the result. This function reads a large library.
 Measured centroids are used for precursor and fragment matching when available.
+}
+\details{
+Only negative ion mode is currently supported (\verb{[M−H]⁻}, \verb{[M+Cl]⁻}).
+If supplied, the resource declaration \code{ion_mode} must be \code{"negative"}.
 }

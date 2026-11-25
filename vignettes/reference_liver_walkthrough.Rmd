@@ -11,8 +11,7 @@ This walkthrough shows the configuration for the locked liver workflow. Supply
 the external pixel data, region labels, feature masses and identifiers, reference
 libraries, and pathway mappings. These resources are distributed separately.
 The package's locked configuration records the relative resource paths and
-checksums. Set `MSIDATASET_D15_STUDY_ROOT`, `MSIDATASET_D15_REFERENCE_ROOT`,
-and `MSIDATASET_D15_DATA_ROOT` to the matching archive directories.
+checksums. Set `MSIDATASET_REFERENCE_ROOT` to the reference archive directory.
 
 ```{r, eval=FALSE}
 library(msidataset)

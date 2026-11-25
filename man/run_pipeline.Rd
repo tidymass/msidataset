@@ -4,27 +4,29 @@
 \alias{run_pipeline}
 \title{Run the MSI analysis in cached stages}
 \usage{
-run_pipeline(config, from = NULL, to = NULL, cache_dir)
+run_pipeline(config, from = NULL, to = "build_llm_evidence", cache_dir)
 }
 \arguments{
 \item{config}{Named list with \code{input} (arguments to \code{\link[=read_msi_data]{read_msi_data()}}),
 \code{labels} (data frame or TSV path), \code{step6} (RDS path or step6 object),
 \code{vector_library} (directory), and \code{mfc_output_dir} (writable directory).
-If \code{step6} is absent, \code{match_spectral_library()} must be available and
-\code{spectral} must contain its configuration. For the evidence stage,
+If \code{step6} is absent, \code{spectral} must contain the \code{\link[=match_spectral_library]{match_spectral_library()}}
+configuration. Optional \code{resources} are passed to spectral matching and
+MFC scoring. For the evidence stage,
 \code{evidence} provides \code{output_dir}, \code{hmdb_pathways}, and \code{reactome_mapping}.
 The vector library's ids.tsv provides taxonomy metadata.}
 
 \item{from}{First stage to execute; earlier stages must already be cached.}
 
-\item{to}{Last stage to execute. Use \code{"build_llm_evidence"} to complete
-evidence construction. The default reaches the annotation stage, which
-requires calling \code{\link[=annotate_clusters]{annotate_clusters()}} separately with an evidence view.}
+\item{to}{Last stage to execute. The default is \code{"build_llm_evidence"}.
+Call \code{\link[=annotate_clusters]{annotate_clusters()}} separately with an evidence view.}
 
 \item{cache_dir}{Directory for checkpoint files.}
 }
 \value{
 A list containing the latest results, stage history, and cache keys.
+A stopping status identifies stages skipped for insufficient features or
+an ineligible cluster count.
 }
 \description{
 Evidence construction consumes the

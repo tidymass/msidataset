@@ -93,6 +93,6 @@ read_msi_data <- function(path, format = c("csv", "imzml"), mz = NULL, feature_i
   if (!is.null(feature_metadata)) variables <- cbind(variables, feature_metadata)
   result <- massdataset::create_mass_dataset(expr, samples, variables)
   result@process_info$read_msi_data <- c(list(function_name = "read_msi_data", format = format,
-    path = normalizePath(path), time = as.character(Sys.time())), imzml_info)
+    input = .msi_file_record(path), time = as.character(Sys.time())), imzml_info)
   result
 }

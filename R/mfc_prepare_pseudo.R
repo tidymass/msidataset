@@ -2,7 +2,10 @@
 # remain in the returned table with an explicit status for the caller.
 .mfc_prepare_pseudo <- function(object, pairs) {
   i <- .msidataset_inputs(object)
-  required <- c("precursor_feature_id", "precursor_mz", "fragment_feature_id", "fragment_mz", "sas_d7")
+  if (is.data.frame(pairs) && !("sas" %in% names(pairs)) && "sas_d7" %in% names(pairs)) {
+    names(pairs)[names(pairs) == "sas_d7"] <- "sas"
+  }
+  required <- c("precursor_feature_id", "precursor_mz", "fragment_feature_id", "fragment_mz", "sas")
   if (!is.data.frame(pairs) || !all(required %in% names(pairs)))
     stop("Pseudo-MS2 pair columns are missing", call. = FALSE)
   if (any(!is.finite(i$tic) | i$tic <= 0)) stop("TIC must be finite and positive", call. = FALSE)
@@ -23,7 +26,7 @@
   fragment_full <- is.finite(full[idx])
   out$precursor_mz[precursor_full] <- full[precursor_idx[precursor_full]]
   out$fragment_mz[fragment_full] <- full[idx[fragment_full]]
-  out$SAS <- out$sas_d7
+  out$SAS <- out$sas
   out$ms1 <- med[idx]
   max_per <- ave(out$ms1, out$precursor_feature_id, FUN = function(x) {
     if (all(is.na(x))) rep(NA_real_, length(x)) else rep(max(x, na.rm = TRUE), length(x))

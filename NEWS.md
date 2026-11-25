@@ -1,3 +1,11 @@
+# msidataset 0.2.1
+
+- Organize reference resources under a single archive root and accept custom
+  negative-ion libraries for matching and MFC scoring.
+- End the default pipeline at evidence construction. Annotation is a separate call.
+- Report insufficient features and ineligible clustering as stage results.
+- Preserve the caller's random state and use measured m/z where available.
+
 # msidataset 0.2.0
 
 This release rewrites the package since v0.1.1 for staged MSI analysis.
