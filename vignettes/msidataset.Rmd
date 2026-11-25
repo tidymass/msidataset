@@ -1,0 +1,36 @@
+---
+title: "Getting started with msidataset"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with msidataset}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Start with pixel intensities, total ion current (TIC), and a region label for each
+pixel. The example constructs a small synthetic CSV with two ion images. The
+regional comparison uses paired spatial blocks within the section. Each stage
+appends its parameters and results to the object's `process_info`.
+
+```{r}
+library(msidataset)
+
+pixels <- expand.grid(x = 1:160, y = 1:6)
+region <- ifelse((pixels$x %% 20L) %in% 1:10, "periportal", "pericentral")
+signal <- 10 + as.integer(pixels$x / 20) + 40 * (region == "pericentral")
+input <- tempfile(fileext = ".csv")
+write.table(cbind(pixels, tic = 100, precursor = signal, fragment = signal / 2),
+            input, sep = ",", row.names = FALSE, col.names = FALSE)
+
+msi <- read_msi_data(input, format = "csv", mz = c(200, 100))
+msi <- define_roi(msi, transform(pixels, region = region))
+msi <- detect_de_features(msi)
+msi <- generate_pseudo_ms2(msi)
+
+msi@process_info$detect_de_features$result
+msi@process_info$generate_pseudo_ms2$result
+unlink(input)
+```
+
+To continue from pseudo-MS/MS to ranked candidates and semantic modules, see
+`vignette("d15_liver_walkthrough")`.

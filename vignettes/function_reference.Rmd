@@ -1,0 +1,42 @@
+---
+title: "Analysis stages and local annotation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Analysis stages and local annotation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+- `read_msi_data()` imports pixel CSV or imzML, and `define_roi()` attaches
+  region labels.
+- `detect_de_features()` compares paired spatial blocks with a Wilcoxon test
+  and Benjamini–Hochberg correction. `generate_pseudo_ms2()` selects fragments
+  by spatial correlation and mass separation.
+- `match_spectral_library()` records spectral matches. `calculate_mfc()`
+  scores candidates and records both retained and excluded rows.
+- `read_vector_library()` reads selected rows from an external float32 vector
+  library. `embed_features()` weights vectors by MFC priority.
+- `select_k()` uses PCA, k-means, cosine silhouette, and a permutation baseline.
+  `cluster_features()` measures subsample stability, and
+  `select_representatives()` selects observed members.
+- `retrieve_neighbors()` retrieves the nearest library entries for each
+  representative and combines them by library ID within each module.
+- `build_llm_evidence()` combines candidate, representative, and neighbor support
+  and can add pathway evidence. `run_pipeline()` can checkpoint these stages
+  through evidence construction.
+
+## Local model requests
+
+Use `annotate_clusters(view, config, perform = FALSE)` to prepare an
+OpenAI-compatible request. Supply `config$base_url` as the loopback HTTP URL
+and port of a llama.cpp-compatible server, along with the model, prompt file,
+response schema, and generation settings. Keep `count_tokens = FALSE` for
+offline preparation. Setting `count_tokens = TRUE` calls the server's chat
+template and tokenizer endpoints. When configured token measurement exceeds the
+budget, the function reduces the request view in a prescribed order and retains
+the full evidence file. It blocks completion requests that still exceed the cap.
+
+To review an existing parsed answer offline, pass it as `response` and set
+`config$vocabulary_cards` to the vocabulary file for semantic checks. Review
+candidate module names and pathway clues against the cited evidence before using
+them in a scientific interpretation.

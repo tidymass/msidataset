@@ -1,0 +1,220 @@
+{
+  "note": "JSON syntax is valid YAML here. Resolve resources against the environment variables named in their root fields. The original preregistrations contain evaluation-only references that must stay outside model input.",
+  "parameters": {
+    "task": "D15 second attempt",
+    "created_utc": "2026-11-16T07:48:36.495944+00:00",
+    "scope": "liver_mouse_7_ROI_2, 156 features",
+    "regions": "reuse D12 ROI2 PP/PC/VESSEL labels and Moran I",
+    "pseudo_ms2": {
+      "normalization": "TIC",
+      "gaussian_sigma_pixels": 1,
+      "fragment_mz_max": "precursor_mz - 10 Da",
+      "spearman_min": 0.8,
+      "fragment_tolerance_ppm": 15,
+      "minimum_matched_fragments": 2,
+      "library": "local negative LipidBlast 2022 and optional ADP step6 library only if confirmed usable",
+      "library_sha256": "to be recorded after deterministic conversion; no input available before generation",
+      "source_sha256": "ddcc26ef5def1257983c2111a1725f94063364a70318e3cac06d72539a4f5a71",
+      "details": "TIC normalized by mean TIC; masked Gaussian sigma 1; Spearman rho>=0.8; m/z gap >=10; 15 ppm fragment match, two distinct matched fragment peaks minimum; ambiguous/unmatched marked"
+    },
+    "mfc": {
+      "adducts": [
+        "[M-H]-",
+        "[M+Cl]-"
+      ],
+      "scoring": "D13 unchanged; pseudo-MS2-supported candidates Tier 2; filter candidates lacking HMDB v2 embedding; rerank as D13"
+    },
+    "de": {
+      "tile_pixels": [
+        20,
+        20
+      ],
+      "region_min_pixels": 30,
+      "regions": "non-vessel PC, PP",
+      "method": "paired Wilcoxon across tiles, BH",
+      "fdr_lt": 0.05,
+      "absolute_log2fc_gt": 0.25,
+      "d13_comparison": "post hoc only",
+      "epsilon": "half minimum positive TIC-normalized non-vessel intensity within ROI2, fixed before DE",
+      "tile_origin": "minimum observed x and y; integer floor((coord-min)/20)",
+      "wilcoxon": "two-sided scipy signed rank, zeros discarded, ties handled by scipy auto; all-zero pairs p=1, untestable marked"
+    },
+    "embedding": {
+      "library": "libs/hmdb_full_bge_v2",
+      "dimension": 1024,
+      "weighted_by": "MFC priority",
+      "normalize": "L2"
+    },
+    "clustering": {
+      "methods": [
+        "PCA",
+        "k-means"
+      ],
+      "pca_components": 20,
+      "k": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "n_init": 50,
+      "seed": 20261111,
+      "null": "20 componentwise permutations; n_init=10; D13 seed and implementation",
+      "eligible": "all cluster sizes >= 5",
+      "choice": "max cosine silhouette minus mean permutation baseline, tie smallest k",
+      "stability": "50 samples floor(0.9*n), seed 20261110; per-cluster best-overlap median Jaccard > 0.5",
+      "stop": "no eligible k, one cluster or all clusters unstable",
+      "silhouette_metric": "cosine in 20-dimensional PCA space; null calculated identically",
+      "tie": "smallest k"
+    },
+    "representatives": "center: minimum cosine distance to centroid of original unit feature embeddings, full feature_id lexicographic tie; nearest to center by cosine and feature_id, max(ceil(0.1*n),5); delete n<5",
+    "retrieval": "top 25 per representative, remove pathways",
+    "llm": {
+      "models": [
+        "gpt-oss-120b",
+        "Qwen3-Next-80B"
+      ],
+      "prompt": "system_v5_d2",
+      "validator": "v2",
+      "max_input_tokens": 20000,
+      "compression": "D14e: remove per-neighbor pathways; omit identical full_partial_neighbors; examples 3 to 1; omit pathway reduction as no pathways; D14c minimal projection; never remove representatives",
+      "negative_control": "missing evidence",
+      "cross_preflight": "server ready and successful test request",
+      "server": "stop after each model"
+    },
+    "edge_handling": "missing/unresolvable values kept and flagged; no imputation or modification of thresholds; no inference labels from author/gold",
+    "region": "D12 labels, prior Moran I 0.8788656879395719; pixels 172806, vessel 8641, PP 78425, PC 85740",
+    "tier_clarification_appendix": {
+      "appended_utc": "2026-11-16T07:54:27.902316+00:00",
+      "decision_file": "prompts/DECISIONS_D15_tier.json",
+      "clarification": "D15 task-book phrase pseudo-MS2-supported candidates Tier 2 was a documentation error. Retain the unchanged D13 frozen scoring, tier definitions, score intervals and ranking; candidates with both MS1 and pseudo-MS2 support are Tier 1."
+    },
+    "resume_d7_interface_appendix": {
+      "appended_utc": "2026-11-16T08:02:05.959314+00:00",
+      "reason": "Document D7-compatible score inputs used by the resumed stages before computation.",
+      "pseudo_intensity": "D7 median positive TIC-normalized intensity per fragment, basepeak 100 within each precursor; selection remains the preregistered smoothed Spearman >=0.8 and 10 Da gap.",
+      "sas": "D7 SAS = 0.5 active-union Spearman + 0.5 coactive/active-union fraction on the smoothed TIC-normalized images; retain and separately record rho.",
+      "precursor_search": "D7 precursor candidate union: observed precursor +/-10 ppm; spectra without precursor remain in library and are flagged as unsearchable by this route.",
+      "fragments": "15 ppm, 2 distinct matches as preregistered; frozen D13 candidate scorer remains unchanged."
+    },
+    "generated_library_hashes_appendix": {
+      "appended_utc": "2026-11-16T08:13:53.562908+00:00",
+      "generated_library_sha256": {
+        "libs/ms2_neg_d15/lipidblast_neg.rds": "671696a23b24b6a7ced6aee2a0fe0335516b16b70fbbdc970f7dc056ef2354f0",
+        "libs/ms2_neg_d15/lipidblast_hmdb_neg_merged.rds": "8ddb1bf93fbed04ca8aeda076df93bd4fb334c8b3396ca1e457ca932dd88cc02"
+      },
+      "record": "Post-conversion output hashes; do not imply an earlier independent output-hash baseline."
+    },
+    "neighbor_aggregation_appendix": {
+      "appended_utc": "2026-11-16T08:35:11.902113+00:00",
+      "decision_file": "prompts/DECISIONS_D15_neighbors.json",
+      "rule": "Union all representatives top-25 retrieved neighbors within each cluster; group by HMDB_ID, count distinct representatives, rank by maximum recorded cosine descending; retain top 25; preserve full original retrieval table; include n_reps_hit and max_cosine, no pathways.",
+      "ties_and_metadata": "For equal maximum cosine, order HMDB_ID lexicographically; use the row with maximum cosine and resolve identical maximum rows by feature_id then original rank; retain D13-style neighbor fields and D15 descriptive field when originally present; do not infer missing metadata.",
+      "token_cap": "Use actual server tokenizer; apply previously registered D14e compression order if over 20000; record steps; otherwise mark LLM_FAILED.",
+      "reference_labels": "Never enter model input; evaluate marker class only after model output."
+    },
+    "neighbor_format_appendix": {
+      "appended_utc": "2026-11-16T10:49:36.761152+00:00",
+      "rule": "Match D13 semantic-neighbor fields: cluster_id, query_type, feature_id, rank, HMDB_ID, name, taxonomy_path, card_completeness, cosine, interpretation, evidence_id; add n_reps_hit and max_cosine; omit pathways and description. Card completeness comes from the same existing HMDB ids metadata; missing values remain null. No change to retrieval or ordering."
+    }
+  },
+  "resources": {
+    "prereg_d15": {
+      "root": "MSIDATASET_D15_REPORTS_ROOT",
+      "path": "D15/prereg_d15.json",
+      "sha256": "03a68d87c95f5365352de894868313812fb897402817b512af3f6221b77c2e6f"
+    },
+    "prereg_d15r": {
+      "root": "MSIDATASET_D15_REPORTS_ROOT",
+      "path": "D15r/prereg_d15r.json",
+      "sha256": "2e2469e990d5de9e08031b3c00e8e441ce4cdceb5ff3430cc0ea6804b134d5c8"
+    },
+    "csv": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "data_ext/samarah_liver/liver_mouse_7_ROI_2.csv",
+      "sha256": "047bf6d3f0ed5ed95087401205f98ecce57478d5da949b0f554895bab1ca7053"
+    },
+    "labels": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d12_liver/region_d12/liver_mouse_7_ROI_2/labels.tsv",
+      "sha256": "8a3446d1672c05c949ca949c3ecb27740b10faa096edb1fec6be987fc33ce60c"
+    },
+    "meta": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "data_ext/samarah_liver/livm_meta.tsv",
+      "sha256": "2980bb109f5294fdec09252514db03e53fa8319bdb83ba724670a8f899955710"
+    },
+    "de_reference": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_roi2/de_d15/de_features.tsv",
+      "sha256": "9612df7010fef83cdd19c63883c557257ca724d2fa4102ce338998ede613191a"
+    },
+    "de_all_reference": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_roi2/de_d15/features_all.tsv",
+      "sha256": "cfd861094ecfd66b7e9ac81e00142e45e302efa05743dc522cfe425e0f83bca9"
+    },
+    "pseudo_reference": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_resume/pseudo_d15/pseudo_ms2.tsv",
+      "sha256": "1d672cc78a3ea99991ea9a9a622a9184308431bd5e4e3be361d8e64ef6d33b28"
+    },
+    "mfc_reference": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_resume/mfc_final_d15/mfc_candidates_filtered.tsv",
+      "sha256": "4a491c0148bfd65f6a5bc91ed2cf66d159a8c20d14cd34b1dab555a87ef672c0"
+    },
+    "step6": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_resume/mfc_retry_d15/step6.rds",
+      "sha256": "21cf55d0c493261ceb09a4f534051092c9c827984c710dc6bdd186700d273586"
+    },
+    "query": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_resume/mfc_retry_d15/pseudo_for_step5.tsv",
+      "sha256": "40a488cbe9c4f071ad79ce70911ebdf8845322dbe8c4a4d64dfd8c6e792980a3"
+    },
+    "features": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "runs/d15_resume/mfc_retry_d15/features.tsv",
+      "sha256": "85b308ce299babf14063478a054d31152f7bface28c8615480878b73f5776a1b"
+    },
+    "adp_config": {
+      "root": "MSIDATASET_D15_REFERENCE_ROOT",
+      "path": "outputs/nedc_retention_corrected_20260908_153249/nedc_adp_roi1000_20260908_153256/03_resolved_config.txt",
+      "sha256": "31ac5dbf3195f892b8c7339fed51a8f4be34c28b865d1a89251dc2c585a64ab4"
+    },
+    "vector_meta": {
+      "root": "MSIDATASET_D15_DATA_ROOT",
+      "path": "hmdb_full_bge_v2/meta.json",
+      "sha256": "967a8fe25a6bd0676eb46df6e873072d1536ab51c37079daa7c001195297ffb1"
+    },
+    "vector_ids": {
+      "root": "MSIDATASET_D15_DATA_ROOT",
+      "path": "hmdb_full_bge_v2/ids.tsv",
+      "sha256": "b90c76361febf45306120a50d0bc4573eb27a7ab4b8e05b9f4de11d535269e3e"
+    },
+    "vector_data": {
+      "root": "MSIDATASET_D15_DATA_ROOT",
+      "path": "hmdb_full_bge_v2/embeddings.f32",
+      "sha256": "d9701039b88a79e82566d46442db22a65ae9abe8e21ed8da03251a697eeb81da"
+    },
+    "ms1_library": {
+      "root": "MSIDATASET_D15_REFERENCE_ROOT",
+      "path": "derived_library/msi_database_ms1_flat_v2.rds",
+      "sha256": "3d882d0df421e5add609c7c0270964fc1ea992e2c19228827836315d052f4f82"
+    },
+    "ms1_project_root": {
+      "root": "MSIDATASET_D15_REFERENCE_ROOT",
+      "path": "."
+    },
+    "ms2_library": {
+      "root": "MSIDATASET_D15_STUDY_ROOT",
+      "path": "libs/ms2_neg_d15/lipidblast_hmdb_neg_merged.rds",
+      "sha256": "8ddb1bf93fbed04ca8aeda076df93bd4fb334c8b3396ca1e457ca932dd88cc02"
+    }
+  }
+}

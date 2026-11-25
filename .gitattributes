@@ -1,3 +1,0 @@
-*.ibd filter=lfs diff=lfs merge=lfs -text
-*.imzML filter=lfs diff=lfs merge=lfs -text
-*.mgf filter=lfs diff=lfs merge=lfs -text

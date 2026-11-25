@@ -1,2 +1,7 @@
-^.*\.Rproj$
-^\.Rproj\.user$
+^\.gitignore$
+^\.gitattributes$
+^\.github$
+^_pkgdown\.yml$
+^(apps|docs|gates|paper)$
+^DECISIONS_PKG\.json$
+^\.(agents|aws|codex)$

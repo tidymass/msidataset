@@ -1,0 +1,16 @@
+validation_id	historical_value	historical_source	recomputed_value	source_file	interpretation
+pk2_k_delta_2	0.0452854335058	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.0454621776728	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_delta_3	0.090064634697	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.0916795363751	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_delta_4	0.128920268783	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.0751252529497	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_observed_4	0.348340710741	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.310430007617	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；k=4–8 在两种实现中均不合格
+pk2_k_delta_5	0.156861255118	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.138005348613	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_observed_5	0.32008944292	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.316231129532	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；k=4–8 在两种实现中均不合格
+pk2_k_delta_6	0.147036587646	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.150553549434	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_observed_6	0.298976488456	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.319631105504	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；k=4–8 在两种实现中均不合格
+pk2_k_delta_7	0.255418106	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.184695046638	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_observed_7	0.372367792223	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.339937227064	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；k=4–8 在两种实现中均不合格
+pk2_k_delta_8	0.274065732308	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.26121806564	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；PKG-D1采用R基准，最小簇规则仍生效
+pk2_k_observed_8	0.407457624078	WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	0.415005421818	PKG/reports/PK2/k_selection_comparison.tsv; WEEK/runs/d15_resume/cluster_d15/k_selection.tsv	历史基准差异；k=4–8 在两种实现中均不合格
+pk2c_stability_c0	0.666666666667	WEEK/runs/d15_resume/cluster_d15/stability.tsv	0.851648351648	DATA/pk2c/pipeline-release.rds; WEEK/runs/d15_resume/cluster_d15/cluster_members.tsv; WEEK/runs/d15_resume/cluster_d15/stability.tsv	历史基准差异；PKG-D1 是事后验收标准
+pk2c_stability_c2	0.843434343434	WEEK/runs/d15_resume/cluster_d15/stability.tsv	0.911067193676	DATA/pk2c/pipeline-release.rds; WEEK/runs/d15_resume/cluster_d15/cluster_members.tsv; WEEK/runs/d15_resume/cluster_d15/stability.tsv	历史基准差异；PKG-D1 是事后验收标准
+pk2c_per_rep_neighbors_recount	375/375	WEEK/runs/d15_resume/retrieve_d15/neighbors.tsv	373/375	DATA/pk2c/pipeline-release.rds; WEEK/runs/d15_resume/retrieve_d15/neighbors.tsv	历史基准差异；PKG-D1 采用按簇合并的近邻

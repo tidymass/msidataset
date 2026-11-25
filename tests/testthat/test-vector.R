@@ -1,0 +1,12 @@
+test_that("vector rows preserve ordering, duplicates and float32 values", {
+  path <- file.path(tempdir(), "small-vector-library")
+  dir.create(path, showWarnings = FALSE)
+  jsonlite::write_json(list(shape = c(3L, 2L), dtype = "float32", byte_order = "little", order = "C"), file.path(path, "meta.json"), auto_unbox = TRUE)
+  writeLines(c("id", "a", "b", "c"), file.path(path, "ids.tsv"))
+  con <- file(file.path(path, "embeddings.f32"), "wb")
+  writeBin(as.numeric(1:6), con, size = 4, endian = "little"); close(con)
+  x <- read_vector_library(path, c(3, 1, 3))
+  expect_equal(unname(x$vectors), rbind(c(5, 6), c(1, 2), c(5, 6)))
+  expect_equal(x$ids$id, c("c", "a", "c"))
+  expect_error(read_vector_library(path, 0), "indices")
+})

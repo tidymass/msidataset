@@ -1,0 +1,47 @@
+---
+title: "Mouse liver MSI with cached analysis stages"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Mouse liver MSI with cached analysis stages}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+This walkthrough shows the configuration for the locked liver workflow. Supply
+the external pixel data, region labels, feature masses and identifiers, reference
+libraries, and pathway mappings. These resources are distributed separately.
+The package's locked configuration records the relative resource paths and
+checksums. Set `MSIDATASET_D15_STUDY_ROOT`, `MSIDATASET_D15_REFERENCE_ROOT`,
+and `MSIDATASET_D15_DATA_ROOT` to the matching archive directories.
+
+```{r, eval=FALSE}
+library(msidataset)
+
+dir.create("spectral-output", showWarnings = FALSE)
+dir.create("mfc-output", showWarnings = FALSE)
+config <- list(
+  input = list(path = "liver_roi.csv", format = "csv", mz = mz,
+               feature_id = feature_id),
+  labels = "labels.tsv",
+  spectral = list(output_dir = "spectral-output", workers = 4),
+  vector_library = "vector-library",
+  mfc_output_dir = "mfc-output",
+  evidence = list(output_dir = "full-evidence",
+                  hmdb_pathways = "pathways.tsv",
+                  reactome_mapping = "hmdb_reactome.tsv")
+)
+result <- run_pipeline(config, to = "build_llm_evidence", cache_dir = "cache")
+result$selection$table
+result$clusters$stability
+result$neighbors$merged
+result$evidence$views
+```
+
+Each checkpoint records its inputs, the package code, and the preceding checkpoint.
+With the same inputs, call `run_pipeline()` again to reuse completed work. Use
+`from` to start at a specific stage after valid earlier checkpoints.
+
+MFC scores, candidate ranks, and semantic neighbor similarity measure support
+under their respective scoring rules. Keep reference labels, gold standards,
+author names and formulas, and evaluation truth out of model inputs. Within one
+section, paired spatial blocks quantify regional differences at the section level.
